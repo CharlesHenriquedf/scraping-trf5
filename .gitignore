@@ -1,0 +1,43 @@
+# ============================
+# Claude Code (config, comandos, hooks locais)
+.claude/
+[Cc]LAUDE.md
+scripts/claude/
+
+# Outros perfis/ferramentas de IA comuns (IDE/assistentes)
+.vscode/                 # evita expor extensões de IA/Claude/Copilot
+.windsurf/               # Windsurf IDE (se existir)
+.codeium/                # Codeium (se existir)
+.github/                 # oculta workflows e configs que possam revelar IA/automação
+
+# Arquivos genéricos que podem conter prompts/comandos de IA, caso você crie
+prompts/
+prompts/**.md
+**/prompt.md
+**/prompts.md
+agents/
+agents/**
+
+# ============================
+# 🔒 Configs locais / segredos
+# ============================
+.env
+config/settings.local.py
+*.local.*
+*.secret.*
+secrets/
+secret/
+**/id_rsa
+**/id_ed25519
+
+# ============================
+# 🧹 Cache/venv/logs (padrão Python)
+# ============================
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.cache/
+logs/
