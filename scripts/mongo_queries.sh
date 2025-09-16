@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # =============================================================================
-# TRF5 Scraper - Consultas MongoDB Rápidas
+# TRF5 Scraper - Consultas MongoDB Rï¿½pidas
 # =============================================================================
-# Este script executa consultas padronizadas no MongoDB para verificação
+# Este script executa consultas padronizadas no MongoDB para verificaï¿½ï¿½o
 # dos dados coletados pelo TRF5 Scraper
 
 set -e
@@ -16,11 +16,11 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Configurações
+# Configuraï¿½ï¿½es
 MONGO_URI=${MONGO_URI:-"mongodb://localhost:27017"}
 MONGO_DB=${MONGO_DB:-"trf5"}
 
-# NPUs do Banco do Brasil para verificação
+# NPUs do Banco do Brasil para verificaï¿½ï¿½o
 NPUS_BB=(
     "0015648-78.1999.4.05.0000"
     "0012656-90.2012.4.05.0000"
@@ -30,7 +30,7 @@ NPUS_BB=(
     "0000560-67.2017.4.05.0000"
 )
 
-# Função para logging
+# Funï¿½ï¿½o para logging
 log() {
     echo -e "${BLUE}[$(date '+%H:%M:%S')]${NC} $1"
 }
@@ -44,14 +44,14 @@ error() {
 }
 
 warning() {
-    echo -e "${YELLOW} ${NC} $1"
+    echo -e "${YELLOW}ï¿½${NC} $1"
 }
 
 info() {
     echo -e "${CYAN}9${NC} $1"
 }
 
-# Função para verificar MongoDB
+# Funï¿½ï¿½o para verificar MongoDB
 check_mongodb() {
     log "Verificando conectividade MongoDB..."
 
@@ -60,7 +60,7 @@ check_mongodb() {
     elif command -v mongo &> /dev/null; then
         MONGO_CMD="mongo"
     else
-        error "MongoDB client não encontrado (mongosh ou mongo)"
+        error "MongoDB client nï¿½o encontrado (mongosh ou mongo)"
         echo "Instale o MongoDB client:"
         echo "  # Ubuntu/Debian"
         echo "  sudo apt install mongodb-clients"
@@ -68,7 +68,7 @@ check_mongodb() {
         exit 1
     fi
 
-    # Testar conexão
+    # Testar conexï¿½o
     if timeout 10 "$MONGO_CMD" \
         "$MONGO_URI" \
         --quiet \
@@ -76,15 +76,15 @@ check_mongodb() {
         success "MongoDB conectado em $MONGO_URI"
         return 0
     else
-        error "MongoDB não acessível em $MONGO_URI"
-        echo "Verifique se o MongoDB está rodando:"
+        error "MongoDB nï¿½o acessï¿½vel em $MONGO_URI"
+        echo "Verifique se o MongoDB estï¿½ rodando:"
         echo "  docker ps | grep mongo"
         echo "  cd docker && docker compose up -d"
         exit 1
     fi
 }
 
-# Função para executar consulta
+# Funï¿½ï¿½o para executar consulta
 execute_query() {
     local title="$1"
     local query="$2"
@@ -109,15 +109,15 @@ execute_query() {
     fi
 }
 
-# Consulta 1: Estatísticas gerais
+# Consulta 1: Estatï¿½sticas gerais
 query_general_stats() {
     local query='
-    print("=Ê ESTATÍSTICAS GERAIS");
+    print("=ï¿½ ESTATï¿½STICAS GERAIS");
     print("PPPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
-    // Coleções disponíveis
-    print("=Â  Coleções disponíveis:");
+    // Coleï¿½ï¿½es disponï¿½veis
+    print("=ï¿½  Coleï¿½ï¿½es disponï¿½veis:");
     db.listCollections().forEach(function(collection) {
         var count = db[collection.name].countDocuments({});
         print("   " + collection.name + ": " + count + " documentos");
@@ -125,8 +125,8 @@ query_general_stats() {
 
     print("");
 
-    // Estatísticas de raw_pages
-    print("=Ä Raw Pages (HTML bruto):");
+    // Estatï¿½sticas de raw_pages
+    print("=ï¿½ Raw Pages (HTML bruto):");
     var rawStats = db.raw_pages.aggregate([
         {$group: {
             _id: "$context.tipo",
@@ -136,18 +136,18 @@ query_general_stats() {
     ]).toArray();
 
     rawStats.forEach(function(stat) {
-        print("   " + (stat._id || "undefined") + ": " + stat.count + " páginas");
+        print("   " + (stat._id || "undefined") + ": " + stat.count + " pï¿½ginas");
     });
 
     var totalRaw = db.raw_pages.countDocuments({});
-    print("   Total: " + totalRaw + " páginas HTML salvas");
+    print("   Total: " + totalRaw + " pï¿½ginas HTML salvas");
 
     print("");
 
-    // Estatísticas de processos
-    print("–  Processos estruturados:");
+    // Estatï¿½sticas de processos
+    print("ï¿½  Processos estruturados:");
     var totalProcessos = db.processos.countDocuments({});
-    print("   Total: " + totalProcessos + " processos extraídos");
+    print("   Total: " + totalProcessos + " processos extraï¿½dos");
 
     if (totalProcessos > 0) {
         var comRelator = db.processos.countDocuments({relator: {$ne: null, $ne: ""}});
@@ -156,17 +156,17 @@ query_general_stats() {
 
         print("   Com relator: " + comRelator + " (" + Math.round(comRelator*100/totalProcessos) + "%)");
         print("   Com envolvidos: " + comEnvolvidos + " (" + Math.round(comEnvolvidos*100/totalProcessos) + "%)");
-        print("   Com movimentações: " + comMovimentacoes + " (" + Math.round(comMovimentacoes*100/totalProcessos) + "%)");
+        print("   Com movimentaï¿½ï¿½es: " + comMovimentacoes + " (" + Math.round(comMovimentacoes*100/totalProcessos) + "%)");
     }
     '
 
-    execute_query "=Ê Estatísticas Gerais" "$query"
+    execute_query "=ï¿½ Estatï¿½sticas Gerais" "$query"
 }
 
-# Consulta 2: Últimas páginas coletadas
+# Consulta 2: ï¿½ltimas pï¿½ginas coletadas
 query_recent_pages() {
     local query='
-    print("=R ÚLTIMAS PÁGINAS COLETADAS");
+    print("=R ï¿½LTIMAS Pï¿½GINAS COLETADAS");
     print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
@@ -182,7 +182,7 @@ query_recent_pages() {
         var tipo = doc.context.tipo || "N/A";
         var busca = doc.context.busca || "N/A";
         var identificador = doc.context.numero || doc.context.cnpj || "N/A";
-        var pageIdx = doc.context.page_idx !== undefined ? " (pág " + doc.context.page_idx + ")" : "";
+        var pageIdx = doc.context.page_idx !== undefined ? " (pï¿½g " + doc.context.page_idx + ")" : "";
         var timestamp = doc.fetched_at || "N/A";
 
         print("< " + tipo + " | " + busca + " | " + identificador + pageIdx);
@@ -192,23 +192,23 @@ query_recent_pages() {
     });
     '
 
-    execute_query "=R Últimas Páginas Coletadas" "$query"
+    execute_query "=R ï¿½ltimas Pï¿½ginas Coletadas" "$query"
 }
 
-# Consulta 3: Processos extraídos
+# Consulta 3: Processos extraï¿½dos
 query_extracted_processes() {
     local query='
-    print("–  PROCESSOS EXTRAÍDOS");
+    print("ï¿½  PROCESSOS EXTRAï¿½DOS");
     print("PPPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
     var totalProcessos = db.processos.countDocuments({});
     if (totalProcessos === 0) {
-        print("L Nenhum processo encontrado na coleção processos");
+        print("L Nenhum processo encontrado na coleï¿½ï¿½o processos");
         return;
     }
 
-    print("=Ë Últimos 5 processos extraídos:");
+    print("=ï¿½ ï¿½ltimos 5 processos extraï¿½dos:");
     print("");
 
     db.processos.find({}, {
@@ -220,9 +220,9 @@ query_extracted_processes() {
         "movimentacoes.0.data": 1,
         scraped_at: 1
     }).sort({_id: -1}).limit(5).forEach(function(doc) {
-        print("=Ä " + (doc.numero_processo || doc._id));
+        print("=ï¿½ " + (doc.numero_processo || doc._id));
         print("   Relator: " + (doc.relator || "N/A"));
-        print("   Data autuação: " + (doc.data_autuacao || "N/A"));
+        print("   Data autuaï¿½ï¿½o: " + (doc.data_autuacao || "N/A"));
 
         if (doc.envolvidos && doc.envolvidos.length > 0) {
             print("   Primeiro envolvido: " + doc.envolvidos[0].papel + " - " + doc.envolvidos[0].nome);
@@ -231,17 +231,17 @@ query_extracted_processes() {
         }
 
         if (doc.movimentacoes && doc.movimentacoes.length > 0) {
-            print("   Última movimentação: " + doc.movimentacoes[0].data);
+            print("   ï¿½ltima movimentaï¿½ï¿½o: " + doc.movimentacoes[0].data);
         } else {
-            print("   Movimentações: N/A");
+            print("   Movimentaï¿½ï¿½es: N/A");
         }
 
-        print("   Extraído em: " + (doc.scraped_at || "N/A"));
+        print("   Extraï¿½do em: " + (doc.scraped_at || "N/A"));
         print("");
     });
     '
 
-    execute_query "– Processos Extraídos" "$query"
+    execute_query "ï¿½ Processos Extraï¿½dos" "$query"
 }
 
 # Consulta 4: Verificar NPUs do Banco do Brasil
@@ -250,7 +250,7 @@ query_bb_npus() {
     npus_array="[${npus_array%,}]"
 
     local query="
-    print(\"<æ VERIFICAÇÃO NPUs BANCO DO BRASIL\");
+    print(\"<ï¿½ VERIFICAï¿½ï¿½O NPUs BANCO DO BRASIL\");
     print(\"PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\");
     print(\"\");
 
@@ -258,7 +258,7 @@ query_bb_npus() {
     var encontrados = 0;
     var faltantes = [];
 
-    print(\"=Ë Verificando NPUs fornecidos pelo Banco do Brasil:\");
+    print(\"=ï¿½ Verificando NPUs fornecidos pelo Banco do Brasil:\");
     print(\"\");
 
     npusBB.forEach(function(npu) {
@@ -267,7 +267,7 @@ query_bb_npus() {
             encontrados++;
             print(\" \" + npu + \" - OK\");
             print(\"   Relator: \" + (processo.relator || \"N/A\"));
-            print(\"   Data autuação: \" + (processo.data_autuacao || \"N/A\"));
+            print(\"   Data autuaï¿½ï¿½o: \" + (processo.data_autuacao || \"N/A\"));
         } else {
             faltantes.push(npu);
             print(\"L \" + npu + \" - FALTANDO\");
@@ -275,29 +275,29 @@ query_bb_npus() {
         print(\"\");
     });
 
-    print(\"=Ê Resumo:\");
+    print(\"=ï¿½ Resumo:\");
     print(\"   Encontrados: \" + encontrados + \"/\" + npusBB.length);
     print(\"   Faltantes: \" + faltantes.length + \"/\" + npusBB.length);
 
     if (faltantes.length > 0) {
         print(\"\");
-        print(\"   NPUs faltantes:\");
+        print(\"ï¿½  NPUs faltantes:\");
         faltantes.forEach(function(npu) {
             print(\"   - \" + npu);
         });
         print(\"\");
-        print(\"=¡ Para coletar NPUs faltantes:\");
+        print(\"=ï¿½ Para coletar NPUs faltantes:\");
         print(\"   ./scripts/run_npu.sh\");
     }
     "
 
-    execute_query "<æ Verificação NPUs Banco do Brasil" "$query"
+    execute_query "<ï¿½ Verificaï¿½ï¿½o NPUs Banco do Brasil" "$query"
 }
 
-# Consulta 5: Análise de qualidade dos dados
+# Consulta 5: Anï¿½lise de qualidade dos dados
 query_data_quality() {
     local query='
-    print("= ANÁLISE DE QUALIDADE DOS DADOS");
+    print("= ANï¿½LISE DE QUALIDADE DOS DADOS");
     print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
@@ -307,10 +307,10 @@ query_data_quality() {
         return;
     }
 
-    print("=Ê Qualidade dos campos obrigatórios:");
+    print("=ï¿½ Qualidade dos campos obrigatï¿½rios:");
     print("");
 
-    // Verificar campos obrigatórios
+    // Verificar campos obrigatï¿½rios
     var semNumeroProcesso = db.processos.countDocuments({$or: [{numero_processo: null}, {numero_processo: ""}]});
     var semRelator = db.processos.countDocuments({$or: [{relator: null}, {relator: ""}]});
     var semDataAutuacao = db.processos.countDocuments({$or: [{data_autuacao: null}, {data_autuacao: ""}]});
@@ -324,7 +324,7 @@ query_data_quality() {
     print(" movimentacoes: " + (totalProcessos - semMovimentacoes) + "/" + totalProcessos + " com dados");
 
     print("");
-    print("= Verificações de formato:");
+    print("= Verificaï¿½ï¿½es de formato:");
 
     // Verificar formato de datas ISO
     var datasNaoISO = db.processos.countDocuments({
@@ -332,23 +332,23 @@ query_data_quality() {
     });
 
     if (datasNaoISO === 0) {
-        print(" Todas as datas de autuação estão em formato ISO-8601");
+        print(" Todas as datas de autuaï¿½ï¿½o estï¿½o em formato ISO-8601");
     } else {
-        print("L " + datasNaoISO + " datas de autuação não estão em formato ISO-8601");
+        print("L " + datasNaoISO + " datas de autuaï¿½ï¿½o nï¿½o estï¿½o em formato ISO-8601");
     }
 
-    // Verificar relatores com prefixos não removidos
+    // Verificar relatores com prefixos nï¿½o removidos
     var relatoresComPrefixo = db.processos.countDocuments({
         relator: {$regex: /^(Des\.|DESEMBARGADOR|JUIZ)/i}
     });
 
     if (relatoresComPrefixo === 0) {
-        print(" Todos os relatores estão sem prefixos/títulos");
+        print(" Todos os relatores estï¿½o sem prefixos/tï¿½tulos");
     } else {
-        print("L " + relatoresComPrefixo + " relatores ainda contêm prefixos/títulos");
+        print("L " + relatoresComPrefixo + " relatores ainda contï¿½m prefixos/tï¿½tulos");
 
         print("");
-        print("=Ý Exemplos de relatores com prefixo:");
+        print("=ï¿½ Exemplos de relatores com prefixo:");
         db.processos.find(
             {relator: {$regex: /^(Des\.|DESEMBARGADOR|JUIZ)/i}},
             {numero_processo: 1, relator: 1}
@@ -358,7 +358,7 @@ query_data_quality() {
     }
 
     print("");
-    print("=È Estatísticas de envolvidos:");
+    print("=ï¿½ Estatï¿½sticas de envolvidos:");
     var estatEnvolvidos = db.processos.aggregate([
         {$match: {envolvidos: {$ne: null, $ne: []}}},
         {$project: {count: {$size: "$envolvidos"}}},
@@ -374,12 +374,12 @@ query_data_quality() {
     if (estatEnvolvidos.length > 0) {
         var stat = estatEnvolvidos[0];
         print("   Processos com envolvidos: " + stat.total);
-        print("   Média de envolvidos: " + Math.round(stat.media * 100) / 100);
-        print("   Mínimo: " + stat.minimo + ", Máximo: " + stat.maximo);
+        print("   Mï¿½dia de envolvidos: " + Math.round(stat.media * 100) / 100);
+        print("   Mï¿½nimo: " + stat.minimo + ", Mï¿½ximo: " + stat.maximo);
     }
 
     print("");
-    print("=È Estatísticas de movimentações:");
+    print("=ï¿½ Estatï¿½sticas de movimentaï¿½ï¿½es:");
     var estatMovimentacoes = db.processos.aggregate([
         {$match: {movimentacoes: {$ne: null, $ne: []}}},
         {$project: {count: {$size: "$movimentacoes"}}},
@@ -394,38 +394,38 @@ query_data_quality() {
 
     if (estatMovimentacoes.length > 0) {
         var stat = estatMovimentacoes[0];
-        print("   Processos com movimentações: " + stat.total);
-        print("   Média de movimentações: " + Math.round(stat.media * 100) / 100);
-        print("   Mínimo: " + stat.minimo + ", Máximo: " + stat.maximo);
+        print("   Processos com movimentaï¿½ï¿½es: " + stat.total);
+        print("   Mï¿½dia de movimentaï¿½ï¿½es: " + Math.round(stat.media * 100) / 100);
+        print("   Mï¿½nimo: " + stat.minimo + ", Mï¿½ximo: " + stat.maximo);
     }
     '
 
-    execute_query "= Análise de Qualidade dos Dados" "$query"
+    execute_query "= Anï¿½lise de Qualidade dos Dados" "$query"
 }
 
-# Consulta 6: Estatísticas de descoberta por CNPJ
+# Consulta 6: Estatï¿½sticas de descoberta por CNPJ
 query_cnpj_discovery() {
     local query='
-    print("<â DESCOBERTA POR CNPJ");
+    print("<ï¿½ DESCOBERTA POR CNPJ");
     print("PPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
-    // Verificar páginas coletadas via CNPJ
+    // Verificar pï¿½ginas coletadas via CNPJ
     var paginasCNPJ = db.raw_pages.countDocuments({"context.busca": "cnpj"});
 
     if (paginasCNPJ === 0) {
-        print("L Nenhuma página coletada via busca por CNPJ");
+        print("L Nenhuma pï¿½gina coletada via busca por CNPJ");
         print("");
-        print("=¡ Para executar descoberta por CNPJ:");
+        print("=ï¿½ Para executar descoberta por CNPJ:");
         print("   ./scripts/run_cnpj.sh");
         return;
     }
 
-    print("=Ê Páginas coletadas via CNPJ: " + paginasCNPJ);
+    print("=ï¿½ Pï¿½ginas coletadas via CNPJ: " + paginasCNPJ);
     print("");
 
-    // Distribuição por tipo de página
-    print("=Ä Distribuição por tipo:");
+    // Distribuiï¿½ï¿½o por tipo de pï¿½gina
+    print("=ï¿½ Distribuiï¿½ï¿½o por tipo:");
     db.raw_pages.aggregate([
         {$match: {"context.busca": "cnpj"}},
         {$group: {
@@ -434,12 +434,12 @@ query_cnpj_discovery() {
         }},
         {$sort: {_id: 1}}
     ]).forEach(function(doc) {
-        print("   " + (doc._id || "undefined") + ": " + doc.count + " páginas");
+        print("   " + (doc._id || "undefined") + ": " + doc.count + " pï¿½ginas");
     });
 
-    // Verificar paginação detectada
+    // Verificar paginaï¿½ï¿½o detectada
     print("");
-    print("=Ñ Análise de paginação:");
+    print("=ï¿½ Anï¿½lise de paginaï¿½ï¿½o:");
     var paginasLista = db.raw_pages.countDocuments({
         "context.busca": "cnpj",
         "context.tipo": "lista"
@@ -452,8 +452,8 @@ query_cnpj_discovery() {
             "context.page_idx": {$exists: true, $ne: null}
         });
 
-        print("   Páginas de lista: " + paginasLista);
-        print("   Com índice de página: " + paginasComIndice);
+        print("   Pï¿½ginas de lista: " + paginasLista);
+        print("   Com ï¿½ndice de pï¿½gina: " + paginasComIndice);
 
         if (paginasComIndice > 0) {
             var maxPageIdx = db.raw_pages.findOne(
@@ -461,50 +461,50 @@ query_cnpj_discovery() {
                 {"context.page_idx": 1}
             ).context.page_idx;
 
-            print("   Páginas navegadas: 0 até " + (maxPageIdx || 0));
+            print("   Pï¿½ginas navegadas: 0 atï¿½ " + (maxPageIdx || 0));
         }
     }
 
-    // Processos descobertos via CNPJ (aproximação)
+    // Processos descobertos via CNPJ (aproximaï¿½ï¿½o)
     print("");
-    print("–  Processos potencialmente descobertos via CNPJ:");
+    print("ï¿½  Processos potencialmente descobertos via CNPJ:");
     var processosCNPJ = db.processos.countDocuments({});
-    print("   Total de processos extraídos: " + processosCNPJ);
+    print("   Total de processos extraï¿½dos: " + processosCNPJ);
     print("   (Nota: Podem incluir NPUs coletados diretamente)");
     '
 
-    execute_query "<â Descoberta por CNPJ" "$query"
+    execute_query "<ï¿½ Descoberta por CNPJ" "$query"
 }
 
-# Função para mostrar ajuda
+# Funï¿½ï¿½o para mostrar ajuda
 show_help() {
     echo "Uso: $0 [OPCAO]"
     echo ""
     echo "Executa consultas padronizadas no MongoDB do TRF5 Scraper"
     echo ""
-    echo "Opções:"
-    echo "  -a, --all         Executar todas as consultas (padrão)"
-    echo "  -s, --stats       Apenas estatísticas gerais"
-    echo "  -p, --pages       Apenas últimas páginas coletadas"
-    echo "  -r, --processes   Apenas processos extraídos"
-    echo "  -b, --bb-npus     Apenas verificação dos NPUs do BB"
-    echo "  -q, --quality     Apenas análise de qualidade dos dados"
-    echo "  -c, --cnpj        Apenas estatísticas de descoberta por CNPJ"
+    echo "Opï¿½ï¿½es:"
+    echo "  -a, --all         Executar todas as consultas (padrï¿½o)"
+    echo "  -s, --stats       Apenas estatï¿½sticas gerais"
+    echo "  -p, --pages       Apenas ï¿½ltimas pï¿½ginas coletadas"
+    echo "  -r, --processes   Apenas processos extraï¿½dos"
+    echo "  -b, --bb-npus     Apenas verificaï¿½ï¿½o dos NPUs do BB"
+    echo "  -q, --quality     Apenas anï¿½lise de qualidade dos dados"
+    echo "  -c, --cnpj        Apenas estatï¿½sticas de descoberta por CNPJ"
     echo "  -h, --help        Mostrar esta ajuda"
     echo ""
-    echo "Variáveis de ambiente:"
-    echo "  MONGO_URI         URI de conexão MongoDB (padrão: mongodb://localhost:27017)"
-    echo "  MONGO_DB          Nome da base de dados (padrão: trf5)"
+    echo "Variï¿½veis de ambiente:"
+    echo "  MONGO_URI         URI de conexï¿½o MongoDB (padrï¿½o: mongodb://localhost:27017)"
+    echo "  MONGO_DB          Nome da base de dados (padrï¿½o: trf5)"
     echo ""
     echo "Exemplos:"
     echo "  $0                # Executar todas as consultas"
-    echo "  $0 --stats        # Apenas estatísticas gerais"
+    echo "  $0 --stats        # Apenas estatï¿½sticas gerais"
     echo "  $0 --bb-npus      # Verificar NPUs do Banco do Brasil"
     echo ""
-    echo "  MONGO_URI=mongodb://localhost:27017 $0  # Usar URI específica"
+    echo "  MONGO_URI=mongodb://localhost:27017 $0  # Usar URI especï¿½fica"
 }
 
-# Função principal
+# Funï¿½ï¿½o principal
 main() {
     local option="${1:-all}"
 
@@ -523,7 +523,7 @@ main() {
     # Verificar MongoDB
     check_mongodb
 
-    # Executar consultas baseadas na opção
+    # Executar consultas baseadas na opï¿½ï¿½o
     case "$option" in
         -a|--all|all)
             query_general_stats
@@ -552,8 +552,8 @@ main() {
             query_cnpj_discovery
             ;;
         *)
-            warning "Opção desconhecida: $option"
-            echo "Use $0 --help para ver as opções disponíveis"
+            warning "Opï¿½ï¿½o desconhecida: $option"
+            echo "Use $0 --help para ver as opï¿½ï¿½es disponï¿½veis"
             exit 1
             ;;
     esac
@@ -561,13 +561,13 @@ main() {
     echo ""
     echo ""
     echo ""
-    success " Consultas concluídas com sucesso!"
+    success " Consultas concluï¿½das com sucesso!"
     echo ""
-    info "=¡ Dicas:"
-    echo "  " Para conectar diretamente: mongosh \"$MONGO_URI/$MONGO_DB\""
-    echo "  " Para executar consultas específicas: $0 --help"
-    echo "  " Para coletar mais dados: ./scripts/run_npu.sh ou ./scripts/run_cnpj.sh"
+    info "=ï¿½ Dicas:"
+    echo "  Para conectar diretamente: mongosh \"$MONGO_URI/$MONGO_DB\""
+    echo "  Para executar consultas especï¿½ficas: $0 --help"
+    echo "  Para coletar mais dados: ./scripts/run_npu.sh ou ./scripts/run_cnpj.sh"
 }
 
-# Executar função principal
+# Executar funï¿½ï¿½o principal
 main "$@"
