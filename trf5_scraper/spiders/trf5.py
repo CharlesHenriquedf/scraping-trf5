@@ -5,9 +5,24 @@ Spider TRF5 para coleta de dados de processos jurídicos.
 
 Implementa dois modos de operação:
 - modo=numero: busca por NPU via formulário oficial
-- modo=cnpj: descoberta via formulário de busca
+- modo=cnpj: descoberta via rota estável GET (novo: /processo/cpf/porData/ativos/{CNPJ}/{PAGINA})
 
 URL base: https://www5.trf5.jus.br/cp/
+
+NOTA: Compatível com Scrapy 2.13+ (implementa start() além de start_requests()).
+Mudança principal: fluxo CNPJ não usa mais POST para cp.do (dependência de sessão),
+agora usa rota estável que não requer estado.
+
+Seletores-chave para rota estável CNPJ:
+- Lista válida: .consulta_resultados OU <th>CNPJ:</th>
+- Total: .consulta_paginas .texto_consulta
+- Links: a.linkar[href^="/processo/"]
+- Paginação: URLs sequenciais .../CNPJ/0, .../CNPJ/1, etc.
+
+Campos frágeis (dependem da estrutura HTML do TRF5):
+- Relator: busca por células de tabela com "RELATOR"
+- Data: padrão "AUTUADO EM DD/MM/AAAA"
+- Movimentações: links <a name="mov_X"> seguidos de texto
 """
 
 import scrapy
@@ -35,6 +50,16 @@ from ..utils.pagination import (
 class Trf5Spider(scrapy.Spider):
     """
     Spider principal para extração de processos do TRF5.
+
+    Racional da mudança CNPJ:
+    - Antes: POST para cp.do (dependência de sessão/estado)
+    - Agora: GET para /processo/cpf/porData/ativos/{CNPJ}/{PAGINA} (rota estável)
+
+    Vantagens da rota estável:
+    - Não depende de estado de sessão
+    - URLs previsíveis e sequenciais
+    - Menor chance de erro por timeout/validação
+    - Paginação mais robusta
     """
 
     name = "trf5"
@@ -81,7 +106,19 @@ class Trf5Spider(scrapy.Spider):
 
         self.mongo = None  # setado pela pipeline
 
+    async def start(self):
+        """
+        Método moderno para Scrapy 2.13+ (substitui start_requests).
+        Mantém compatibilidade chamando super() quando apropriado.
+        """
+        async for request in super().start():
+            yield request
+
     def start_requests(self) -> Generator[scrapy.Request, None, None]:
+        """
+        Método legado para compatibilidade com Scrapy < 2.13.
+        A partir do Scrapy 2.13, preferência é dada ao método start().
+        """
         self.logger.info(
             "Iniciando coleta TRF5 (modo=%s, valor=%s, max_pages=%d, max_details=%d)",
             self.modo, self.valor_normalizado, self.max_pages, self.max_details_per_page
@@ -209,17 +246,49 @@ class Trf5Spider(scrapy.Spider):
 
     # ----------------------------- MODO CNPJ ----------------------------- #
     def _start_requests_cnpj(self) -> Generator[scrapy.Request, None, None]:
+        """
+        CNPJ via rota estável GET (rota direta sem dependência de sessão).
+
+        Mudança: Em vez de usar formulário POST para cp.do (que retornava erro),
+        agora usamos a rota estável: /processo/cpf/porData/ativos/{DOC14}/{PAGINA}
+
+        Esta rota é mais confiável pois não depende de estado de sessão.
+        """
+        # Validação robusta: CNPJ deve ter exatamente 14 dígitos
+        if len(self.valor_normalizado) != 14:
+            self.logger.warning(
+                "[cnpj] CNPJ inválido: %s (deve ter 14 dígitos). Encerrando fluxo.",
+                self.valor_normalizado
+            )
+            return
+
+        # Construir URL da rota estável
+        stable_url = f"https://cp.trf5.jus.br/processo/cpf/porData/ativos/{self.valor_normalizado}/0"
+
         context = {
-            "tipo": "form",
+            "tipo": "lista",
             "busca": "cnpj",
             "cnpj": self.valor_normalizado,
-            "endpoint": "form"
+            "page_idx": 0,
+            "endpoint": "stable_route"
         }
-        self.logger.info("[cnpj] carregando formulário: %s", self.FORM_URL)
+
+        self.logger.info(
+            "[cnpj] acessando rota estável: %s (CNPJ=%s)",
+            stable_url, self.valor_normalizado
+        )
+
+        # Incluir cabeçalhos básicos conforme especificação
+        headers = {
+            'Referer': 'https://www5.trf5.jus.br/cp/',
+            'User-Agent': self.settings.get('USER_AGENT', 'trf5_scraper (+http://www.yourdomain.com)')
+        }
+
         yield scrapy.Request(
-            url=self.FORM_URL,
-            callback=self.parse_form_page,
+            url=stable_url,
+            callback=self.parse_result_list_stable,
             meta={'context': context},
+            headers=headers,
             dont_filter=True
         )
 
@@ -253,6 +322,50 @@ class Trf5Spider(scrapy.Spider):
         )
 
     # ----------------------------- LISTA / DETALHE ----------------------------- #
+    def parse_result_list_stable(self, response: scrapy.http.Response) -> Generator[scrapy.Request, None, None]:
+        """
+        Processa resposta da rota estável CNPJ com nova heurística de detecção.
+
+        Nova lógica de classificação:
+        - Lista válida: existe .consulta_resultados OU parâmetros CNPJ
+        - Erro: texto "O Número do Processo informado não é válido" OU estrutura ausente
+        """
+        context = response.meta['context']
+        if self.mongo:
+            self.mongo.save_raw_page(response, context)
+
+        html = response.text
+        page_type = self._classify_page_cnpj_stable(html)
+
+        self.logger.info(
+            "Página de lista processada (page=%d, tipo=%s, url=%s)",
+            context.get('page_idx', 0), page_type, response.url
+        )
+
+        if page_type == 'error':
+            self.logger.warning("Página de erro detectada: %s", response.url)
+            return
+
+        if page_type != 'list':
+            self.logger.warning("Página não é lista conforme esperado: %s", response.url)
+            return
+
+        # Extrair total de registros
+        total_info = self._extract_total_from_stable_page(response)
+        if total_info:
+            self.logger.info(
+                "[cnpj] Total de registros detectado: %d (CNPJ=%s)",
+                total_info, context.get('cnpj')
+            )
+
+        # Extrair links de detalhe
+        yield from self._extract_detail_links_stable(response)
+
+        # Controlar paginação
+        self.cnpj_pages_processed += 1
+        if self.cnpj_pages_processed < self.max_pages:
+            yield from self._handle_pagination_stable(response)
+
     def parse_result_list(self, response: scrapy.http.Response) -> Generator[scrapy.Request, None, None]:
         context = response.meta['context']
         if self.mongo:
@@ -423,6 +536,39 @@ class Trf5Spider(scrapy.Spider):
             return f"{base_url}?page={page_num}"
 
     # ----------------------------- CLASSIFICAÇÃO / PARSE DETALHE ----------------------------- #
+    def _classify_page_cnpj_stable(self, html: str) -> str:
+        """
+        Heurística específica para a rota estável CNPJ.
+
+        Lista válida quando:
+        - existe tabela .consulta_resultados, OU
+        - existe bloco "Parâmetros da Pesquisa" com <th>CNPJ:</th>
+
+        Erro quando:
+        - texto "O Número do Processo informado não é válido", OU
+        - não existe .consulta_resultados e nem parâmetros visíveis
+        """
+        if not html:
+            return 'error'
+
+        text_upper = html.upper()
+
+        # Verificar erro explícito
+        if "O NÚMERO DO PROCESSO INFORMADO NÃO É VÁLIDO" in text_upper:
+            return 'error'
+
+        # Verificar lista válida por indicadores específicos
+        has_consulta_resultados = '.consulta_resultados' in html or 'consulta_resultados' in html
+        has_cnpj_params = bool(
+            re.search(r'<th[^>]*>\s*CNPJ\s*:?\s*</th>', html, re.IGNORECASE)
+        )
+
+        if has_consulta_resultados or has_cnpj_params:
+            return 'list'
+
+        # Se não tem indicadores de lista nem de erro explícito, assumir erro
+        return 'error'
+
     def _classify_page(self, html: str) -> str:
         if is_detail(html):
             return 'detail'
@@ -609,3 +755,148 @@ class Trf5Spider(scrapy.Spider):
                             movimentacoes.append({'data': data_iso, 'texto': texto})
 
         return movimentacoes
+
+    # ----------------------------- HELPERS ROTA ESTÁVEL CNPJ ----------------------------- #
+    def _extract_total_from_stable_page(self, response: scrapy.http.Response) -> Optional[int]:
+        """
+        Extrai total de registros de .consulta_paginas .texto_consulta.
+        Padrão esperado: "Total: 125" ou similar.
+        """
+        # Seletor específico da rota estável
+        total_selectors = [
+            '.consulta_paginas .texto_consulta::text',
+            '.texto_consulta::text',
+            '//text()[contains(., "Total:")]'
+        ]
+
+        for selector in total_selectors:
+            if selector.startswith('//'):
+                elements = response.xpath(selector)
+            else:
+                elements = response.css(selector)
+
+            for element in elements:
+                text = element.get().strip() if element else ''
+                # Procura por "Total: N"
+                match = re.search(r'Total:\s*(\d+)', text, re.IGNORECASE)
+                if match:
+                    return int(match.group(1))
+
+        return None
+
+    def _extract_detail_links_stable(self, response: scrapy.http.Response) -> Generator[scrapy.Request, None, None]:
+        """
+        Extrai links de processo da tabela .consulta_resultados.
+        Seletores específicos para a rota estável CNPJ.
+        """
+        context = response.meta['context']
+
+        # Seletores mais específicos para a rota estável
+        link_selectors = [
+            'a.linkar[href^="/processo/"]',
+            'a[href*="/processo/"]',
+            'a[href*="processo"]'
+        ]
+
+        processo_links = []
+        for selector in link_selectors:
+            links = response.css(selector)
+            if links:
+                processo_links = links
+                break
+
+        details_this_page = 0
+        itens_listados_por_pagina = 0
+
+        for link in processo_links:
+            if (self.cnpj_details_collected >= (self.max_pages * self.max_details_per_page) or
+                details_this_page >= self.max_details_per_page):
+                break
+
+            href = link.attrib.get('href')
+            if not href:
+                continue
+
+            # Extrair NPU do href
+            npu_match = re.search(r'(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})', href)
+            processo_npu = npu_match.group(1) if npu_match else None
+
+            # Construir URL absoluta
+            detail_url = urljoin(response.url, href)
+            # Forçar HTTPS se necessário
+            if detail_url.startswith('http://cp.trf5.jus.br'):
+                detail_url = detail_url.replace('http://', 'https://')
+
+            detail_context = {
+                "tipo": "detalhe",
+                "busca": "cnpj",
+                "cnpj": context.get('cnpj'),
+                "numero": processo_npu,
+                "endpoint": "detalhe"
+            }
+
+            yield scrapy.Request(
+                url=detail_url,
+                callback=self.parse_processo_detail,
+                meta={'context': detail_context},
+                dont_filter=True
+            )
+
+            details_this_page += 1
+            itens_listados_por_pagina += 1
+            self.cnpj_details_collected += 1
+
+        self.logger.info(
+            "[cnpj] itens_listados_por_pagina=%d, detalhes_enfileirados=%d, total_coletado=%d",
+            itens_listados_por_pagina, details_this_page, self.cnpj_details_collected
+        )
+
+    def _handle_pagination_stable(self, response: scrapy.http.Response) -> Generator[scrapy.Request, None, None]:
+        """
+        Paginação para rota estável: URLs sequenciais .../CNPJ/0, .../CNPJ/1, .../CNPJ/2, etc.
+        Detecta links de paginação em .consulta_paginas a.
+        """
+        context = response.meta['context']
+        current_page = context.get('page_idx', 0)
+        cnpj = context.get('cnpj')
+
+        # Verificar se existe próxima página
+        pagination_links = response.css('.consulta_paginas a')
+        has_next = False
+
+        for link in pagination_links:
+            link_text = (link.css('::text').get() or '').strip().lower()
+            if 'próxima' in link_text or 'next' in link_text or 'seguinte' in link_text:
+                has_next = True
+                break
+
+        # Se não encontrou links explícitos, tentar página seguinte mesmo assim
+        # (a rota estável pode não ter links mas aceitar URLs sequenciais)
+        if not has_next and current_page < 5:  # limite de segurança
+            has_next = True
+
+        if has_next and current_page + 1 < self.max_pages:
+            next_page = current_page + 1
+            next_url = f"https://cp.trf5.jus.br/processo/cpf/porData/ativos/{cnpj}/{next_page}"
+
+            next_context = dict(context)
+            next_context['page_idx'] = next_page
+
+            self.logger.info(
+                "[cnpj] Seguindo para página %d: %s",
+                next_page, next_url
+            )
+
+            # Manter cabeçalhos
+            headers = {
+                'Referer': response.url,
+                'User-Agent': self.settings.get('USER_AGENT', 'trf5_scraper (+http://www.yourdomain.com)')
+            }
+
+            yield scrapy.Request(
+                url=next_url,
+                callback=self.parse_result_list_stable,
+                meta={'context': next_context},
+                headers=headers,
+                dont_filter=True
+            )
