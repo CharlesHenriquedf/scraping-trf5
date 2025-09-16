@@ -15,11 +15,9 @@ def is_detail(html_text: Union[str, bytes]) -> bool:
     """
     Detecta se a página é um detalhe de processo.
 
-    Verifica presença simultânea de indicadores específicos:
-    - 'PROCESSO Nº' ou variações
-    - 'RELATOR' ou variações
-    - Seções de envolvidos (tabelas com papéis)
-    - Seções de movimentações (cronologia de eventos)
+    Critérios ampliados para melhor cobertura:
+    - NPU formatado E (relator OU envolvidos OU movimentações)
+    - OU indicadores clássicos restritivos
 
     Args:
         html_text: Conteúdo HTML da página
@@ -36,7 +34,7 @@ def is_detail(html_text: Union[str, bytes]) -> bool:
 
     text = str(html_text).upper()
 
-    # Verifica indicadores de página de detalhe
+    # Critério clássico restritivo (mantido para compatibilidade)
     has_processo = bool(re.search(r'PROCESSO\s+N[°ºo]', text, re.IGNORECASE))
     has_relator = bool(re.search(r'RELATOR', text, re.IGNORECASE))
 
@@ -61,11 +59,54 @@ def is_detail(html_text: Union[str, bytes]) -> bool:
         r'PETICIONAMENTO',          # Peticionamento
         r'JUNTADA',                 # Juntada
         r'PUBLICA[ÇC][ÃA]O',        # Publicação
+        r'AUTUAD[AO]\s+EM'          # Autuado em
     ]
     has_movimentacoes = any(re.search(pattern, text, re.IGNORECASE) for pattern in movimentacoes_patterns)
 
-    # Página de detalhe deve ter TODOS os indicadores principais
-    return has_processo and has_relator and has_envolvidos and has_movimentacoes
+    # Critério clássico: todos os indicadores principais
+    if has_processo and has_relator and has_envolvidos and has_movimentacoes:
+        return True
+
+    # Critério ampliado: NPU + pelo menos um indicador de conteúdo
+    has_npu = bool(re.search(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}', str(html_text)))
+
+    if has_npu:
+        # Indicadores ampliados de relator
+        has_relator_info = any(re.search(pattern, text) for pattern in [
+            r'RELATOR',
+            r'DESEMBARGADOR',
+            r'JUIZ(A)?\s+FEDERAL'
+        ])
+
+        # Indicadores ampliados de envolvidos
+        has_parties_info = any(re.search(pattern, text) for pattern in [
+            r'APT[EO]',     # APTE/APTO
+            r'APD[AO]',     # APDA/APDO
+            r'AUTOR',
+            r'R[EÉ]U',
+            r'ADVOGAD[AO]',
+            r'PROCURADOR',
+            r'PART[EI]',
+            r'ENVOLVIDOS?'
+        ])
+
+        # Indicadores ampliados de timeline
+        has_timeline_info = any(re.search(pattern, text) for pattern in [
+            r'MOVIMENTA[ÇC][ÃA]O',
+            r'MOVIMENTOS?',
+            r'ANDAMENTOS?',
+            r'PETICIONAMENTO',
+            r'JUNTADA',
+            r'PUBLICA[ÇC][ÃA]O',
+            r'\d{1,2}/\d{1,2}/\d{4}',  # Datas
+            r'AUTUAD[AO]\s+EM'
+        ])
+
+        # Se tem NPU + pelo menos um indicador de conteúdo, considera detalhe
+        if has_relator_info or has_parties_info or has_timeline_info:
+            return True
+
+    return False
 
 
 def is_list(html_text: Union[str, bytes]) -> bool:

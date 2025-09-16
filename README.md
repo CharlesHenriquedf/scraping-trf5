@@ -44,7 +44,7 @@ Para cada processo, o scraper extrai:
 
 ```bash
 git clone https://github.com/CharlesHenriquedf/scraping-trf5.git
-cd trf5-scraper
+cd scraping-trf5
 ```
 
 ### 2. Ambiente virtual
@@ -267,7 +267,7 @@ Armazena dados estruturados extraídos:
 ### Estrutura do Projeto
 
 ```
-trf5-scraper/
+scraping-trf5/
 ├── scrapy.cfg                    # Configuração Scrapy
 ├── requirements.txt              # Dependências Python
 ├── README.md                     # Este arquivo

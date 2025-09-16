@@ -60,12 +60,14 @@ check_mongodb() {
     elif command -v mongo &> /dev/null; then
         MONGO_CMD="mongo"
     else
-        error "MongoDB client n�o encontrado (mongosh ou mongo)"
-        echo "Instale o MongoDB client:"
+        warning "MongoDB client n�o encontrado (mongosh ou mongo)"
+        echo "Para usar este script, instale o MongoDB client:"
         echo "  # Ubuntu/Debian"
         echo "  sudo apt install mongodb-clients"
         echo "  # ou baixe mongosh do site oficial do MongoDB"
-        exit 1
+        echo ""
+        info "Pulando consultas MongoDB (cliente n�o disponível)"
+        return 1
     fi
 
     # Testar conex�o
@@ -76,11 +78,13 @@ check_mongodb() {
         success "MongoDB conectado em $MONGO_URI"
         return 0
     else
-        error "MongoDB n�o acess�vel em $MONGO_URI"
+        warning "MongoDB n�o acess�vel em $MONGO_URI"
         echo "Verifique se o MongoDB est� rodando:"
         echo "  docker ps | grep mongo"
         echo "  cd docker && docker compose up -d"
-        exit 1
+        echo ""
+        info "Pulando consultas MongoDB (conex�o n�o disponível)"
+        return 1
     fi
 }
 
@@ -521,7 +525,16 @@ main() {
     echo ""
 
     # Verificar MongoDB
-    check_mongodb
+    if ! check_mongodb; then
+        echo ""
+        warning "Consultas MongoDB n�o podem ser executadas (depend�ncias n�o disponíveis)"
+        echo ""
+        info "Para usar este script, certifique-se de que:"
+        echo "  1. mongosh ou mongo est�o instalados"
+        echo "  2. MongoDB est� rodando e acess�vel"
+        echo ""
+        exit 0
+    fi
 
     # Executar consultas baseadas na op��o
     case "$option" in

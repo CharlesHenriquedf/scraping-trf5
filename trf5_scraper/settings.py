@@ -95,10 +95,66 @@ DUPEFILTER_DEBUG = False
 
 # === CONFIGURAÇÕES DE RETRY ===
 
-# Política de retry para lidar com falhas temporárias de rede
+# Política básica de retry (mantida para compatibilidade)
 RETRY_ENABLED = True
 RETRY_TIMES = 3
 RETRY_HTTP_CODES = [500, 502, 503, 504, 408, 429]
+
+# === CONFIGURAÇÕES DE RETRY AVANÇADO ===
+
+# Enhanced retry middleware habilitado
+ENHANCED_RETRY_ENABLED = True
+ENHANCED_RETRY_TIMES = 5
+
+# Exponential backoff configurações
+RETRY_INITIAL_DELAY = 1.0
+RETRY_MAX_DELAY = 60.0
+RETRY_BACKOFF_MULTIPLIER = 2.0
+RETRY_JITTER_ENABLED = True
+
+# Retry baseado em conteúdo (detecta erros em páginas 200 OK)
+RETRY_CONTENT_PATTERNS = [
+    'erro interno do servidor',
+    'sistema temporariamente indisponível',
+    'manutenção programada',
+    'service unavailable',
+    'gateway timeout',
+    'connection timed out',
+    'erro 5',
+    'página não encontrada',
+    'acesso negado'
+]
+
+# Configurações específicas por tipo de endpoint
+RETRY_FORM_MAX = 3
+RETRY_DETAIL_MAX = 4
+RETRY_LIST_MAX = 5
+RETRY_STABLE_MAX = 6
+
+# Rate limiting adaptativo
+RETRY_ADAPTIVE_DELAY = True
+RETRY_HEALTH_WINDOW = 100
+
+# === CONFIGURAÇÃO DE MIDDLEWARES ===
+
+# Middlewares de download customizados
+DOWNLOADER_MIDDLEWARES = {
+    # Enhanced retry middleware (substitui o padrão)
+    'scrapy.downloadermiddlewares.retry.RetryMiddleware': None,  # Desabilita padrão
+    'trf5_scraper.middlewares.enhanced_retry.EnhancedRetryMiddleware': 550,
+
+    # Outros middlewares mantidos na ordem padrão
+    'scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware': 300,
+    'scrapy.downloadermiddlewares.downloadtimeout.DownloadTimeoutMiddleware': 350,
+    'scrapy.downloadermiddlewares.defaultheaders.DefaultHeadersMiddleware': 400,
+    'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': 500,
+    'scrapy.downloadermiddlewares.redirect.MetaRefreshMiddleware': 580,
+    'scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware': 590,
+    'scrapy.downloadermiddlewares.redirect.RedirectMiddleware': 600,
+    'scrapy.downloadermiddlewares.cookies.CookiesMiddleware': 700,
+    'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 750,
+    'scrapy.downloadermiddlewares.stats.DownloaderStats': 850,
+}
 
 # === CONFIGURAÇÕES DE COOKIES ===
 

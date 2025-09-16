@@ -105,9 +105,9 @@ class Trf5Spider(scrapy.Spider):
     async def start(self):
         """
         Método moderno para Scrapy 2.13+ (substitui start_requests).
-        Mantém compatibilidade chamando super() quando apropriado.
+        Gera requests diretamente sem dependência de start_requests.
         """
-        async for request in super().start():
+        for request in self.start_requests():
             yield request
 
     def start_requests(self) -> Generator[scrapy.Request, None, None]:
@@ -115,14 +115,14 @@ class Trf5Spider(scrapy.Spider):
         Método legado para compatibilidade com Scrapy < 2.13.
         A partir do Scrapy 2.13, preferência é dada ao método start().
         """
-        # Validação de entrada - feita aqui pois spider já está ativo
+        from scrapy.exceptions import CloseSpider
+
+        # Validação com encerramento limpo quando spider está ativo
         if self.modo == 'numero':
             if not self.valor_normalizado or len(normalize_npu_digits(self.valor)) != 20:
-                from scrapy.exceptions import CloseSpider
                 raise CloseSpider(f"NPU inválido: {self.valor}. NPU deve ter 20 dígitos.")
         else:
             if not self.valor_normalizado or len(self.valor_normalizado) != 14:
-                from scrapy.exceptions import CloseSpider
                 raise CloseSpider(f"CNPJ inválido: {self.valor}. CNPJ deve ter 14 dígitos.")
 
         self.logger.info(
@@ -131,7 +131,6 @@ class Trf5Spider(scrapy.Spider):
         )
 
         if self.modo == 'numero':
-            # ALTERAÇÃO: em vez de tentar /cp/processo/<NPU>, use o formulário oficial
             yield from self._start_requests_numero()
         else:
             yield from self._start_requests_cnpj()

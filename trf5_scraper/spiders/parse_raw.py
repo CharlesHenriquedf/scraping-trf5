@@ -60,9 +60,9 @@ class ParseRawSpider(scrapy.Spider):
     async def start(self):
         """
         Método moderno para Scrapy 2.13+ (substitui start_requests).
-        Mantém compatibilidade chamando super() quando apropriado.
+        Gera requests diretamente para MongoDB sem dependência de start_requests.
         """
-        async for request in super().start():
+        for request in self.start_requests():
             yield request
 
     def start_requests(self) -> Generator[scrapy.Request, None, None]:
