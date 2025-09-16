@@ -68,7 +68,8 @@ pip install -r requirements.txt
 
 ```bash
 cd docker
-docker-compose up -d
+docker compose up -d
+# ou docker-compose up -d (se usando Compose v1)
 ```
 
 #### Opção B: MongoDB local
