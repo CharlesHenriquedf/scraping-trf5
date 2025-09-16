@@ -57,6 +57,14 @@ class ParseRawSpider(scrapy.Spider):
 
         self.mongo = None  # Será definido pelo pipeline
 
+    async def start(self):
+        """
+        Método moderno para Scrapy 2.13+ (substitui start_requests).
+        Mantém compatibilidade chamando super() quando apropriado.
+        """
+        async for request in super().start():
+            yield request
+
     def start_requests(self) -> Generator[scrapy.Request, None, None]:
         """
         Lê páginas HTML do MongoDB e gera requests simulados para reprocessamento.
@@ -374,23 +382,59 @@ class ParseRawSpider(scrapy.Spider):
 
     def _extract_relator_offline(self, response: scrapy.http.Response) -> Optional[str]:
         """
-        Extrai relator em modo offline.
+        Extrai relator em modo offline usando as mesmas estratégias do spider principal.
         """
+        # Usa as mesmas estratégias robustas do spider principal
+        relator = self._extract_relator_from_table_offline(response)
+        if relator:
+            return relator
+
+        relator = self._extract_relator_from_patterns_offline(response)
+        if relator:
+            return relator
+
+        return None
+
+    def _extract_relator_from_table_offline(self, response: scrapy.http.Response) -> Optional[str]:
+        """Extrai relator de estruturas de tabela (modo offline)."""
+        rows = response.css('table tr')
+        for row in rows:
+            cells = row.css('td')
+            if len(cells) >= 2:
+                first_cell = clean_text(cells[0].css('::text').get() or '')
+                if 'relator' in first_cell.lower():
+                    # Busca texto em diferentes elementos da segunda célula
+                    second_cell_selectors = ['::text', 'b::text', 'strong::text', 'span::text']
+                    for sel in second_cell_selectors:
+                        second_cell = clean_text(cells[1].css(sel).get() or '')
+                        if second_cell:
+                            # Remove prefixos comuns
+                            import re
+                            relator_name = re.sub(r'^\s*[:;]\s*', '', second_cell)
+                            if relator_name:
+                                return normalize_relator(relator_name)
+        return None
+
+    def _extract_relator_from_patterns_offline(self, response: scrapy.http.Response) -> Optional[str]:
+        """Extrai relator usando padrões textuais (modo offline)."""
         import re
 
-        selectors = [
-            '//text()[contains(., "RELATOR")]'
+        # Busca por padrões textuais no HTML
+        text_patterns = [
+            r'RELATOR:?\s*([^\n\r<]+)',
+            r'Relator:?\s*([^\n\r<]+)',
+            r'DESEMBARGADOR(?:\s+FEDERAL)?:?\s*([^\n\r<]+)',
+            r'JUIZ(?:A)?\s+FEDERAL:?\s*([^\n\r<]+)',
+            r'(?:RELATOR|RELATORA)\s*-\s*([^\n\r<]+)'
         ]
 
-        for selector in selectors:
-            elements = response.xpath(selector)
-            for element in elements:
-                text_content = clean_text(element.get())
-                if 'relator' in text_content.lower():
-                    match = re.search(r'relator:?\s*(.+)', text_content, re.IGNORECASE)
-                    if match:
-                        return normalize_relator(match.group(1))
-
+        full_text = response.text
+        for pattern in text_patterns:
+            matches = re.finditer(pattern, full_text, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                relator_text = clean_text(match.group(1))
+                if relator_text and len(relator_text) > 3:  # Filtro mínimo de tamanho
+                    return normalize_relator(relator_text)
         return None
 
     def _extract_envolvidos_offline(self, response: scrapy.http.Response) -> List[Dict[str, str]]:

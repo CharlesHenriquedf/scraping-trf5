@@ -94,12 +94,8 @@ class Trf5Spider(scrapy.Spider):
 
         if self.modo == 'numero':
             self.valor_normalizado = normalize_npu_hyphenated(self.valor)
-            if not self.valor_normalizado or len(normalize_npu_digits(self.valor)) != 20:
-                raise ValueError(f"NPU inválido: {self.valor}")
         else:
             self.valor_normalizado = normalize_cnpj_digits(self.valor)
-            if not self.valor_normalizado or len(self.valor_normalizado) != 14:
-                raise ValueError(f"CNPJ inválido: {self.valor}")
 
         self.cnpj_pages_processed = 0
         self.cnpj_details_collected = 0
@@ -119,6 +115,16 @@ class Trf5Spider(scrapy.Spider):
         Método legado para compatibilidade com Scrapy < 2.13.
         A partir do Scrapy 2.13, preferência é dada ao método start().
         """
+        # Validação de entrada - feita aqui pois spider já está ativo
+        if self.modo == 'numero':
+            if not self.valor_normalizado or len(normalize_npu_digits(self.valor)) != 20:
+                from scrapy.exceptions import CloseSpider
+                raise CloseSpider(f"NPU inválido: {self.valor}. NPU deve ter 20 dígitos.")
+        else:
+            if not self.valor_normalizado or len(self.valor_normalizado) != 14:
+                from scrapy.exceptions import CloseSpider
+                raise CloseSpider(f"CNPJ inválido: {self.valor}. CNPJ deve ter 14 dígitos.")
+
         self.logger.info(
             "Iniciando coleta TRF5 (modo=%s, valor=%s, max_pages=%d, max_details=%d)",
             self.modo, self.valor_normalizado, self.max_pages, self.max_details_per_page
@@ -202,21 +208,8 @@ class Trf5Spider(scrapy.Spider):
             return
 
         if page_type == 'list':
-            # Tenta extrair o primeiro link que contenha o NPU solicitado
-            links = response.css('a[href*="processo"], a[href*="Processo"], a[href*="detalhe"]::attr(href)').getall()
-            # procurar o NPU alvo na página para construir/filtrar o link correto
-            npu_regex = r'(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})'
-            alvo = self.valor_normalizado
-            melhor = None
-            for href in links:
-                if not href:
-                    continue
-                if alvo in href:
-                    melhor = href
-                    break
-                # fallback: se o alvo não está no href, mas o href parece detalhe, ainda tentar
-                if re.search(npu_regex, href):
-                    melhor = href
+            # Extrai links de processo de forma robusta, evitando links de movimentação
+            melhor = self._extract_npu_detail_link(response, self.valor_normalizado)
 
             if not melhor:
                 self.logger.warning("[numero] lista retornada, mas nenhum link de detalhe encontrado.")
@@ -399,14 +392,19 @@ class Trf5Spider(scrapy.Spider):
         if self.mongo:
             self.mongo.save_raw_page(response, context)
 
-        page_type = self._classify_page(response.text)
+        page_type = self._classify_page_unified(response.text)
 
         if page_type == 'error':
             self.logger.warning("Erro ao acessar processo: %s", response.url)
             return None
 
         if page_type != 'detail':
-            self.logger.warning("Página não é detalhe conforme esperado: %s", response.url)
+            self.logger.warning(
+                "Página não é detalhe conforme esperado (tipo=%s): %s",
+                page_type, response.url
+            )
+            # Log adicional para debug - mostra indicadores presentes
+            self._debug_page_content(response.text, response.url)
             return None
 
         # Processar de fato o detalhe
@@ -570,9 +568,70 @@ class Trf5Spider(scrapy.Spider):
         return 'error'
 
     def _classify_page(self, html: str) -> str:
+        """
+        Classificação unificada de páginas com critérios ampliados.
+
+        Usado tanto online quanto offline para garantir consistência.
+        """
+        return self._classify_page_unified(html)
+
+    def _classify_page_unified(self, html: str) -> str:
+        """
+        Classificação unificada com critérios ampliados para detectar detalhes.
+
+        Critérios para detalhe (mais permissivos):
+        - Contém NPU formatado E (relator OU envolvidos OU movimentações)
+        - OU indicadores clássicos do is_detail() original
+        """
+        if not html:
+            return 'error'
+
+        # Primeiro tenta a classificação original (mais restritiva)
         if is_detail(html):
             return 'detail'
-        elif is_list(html):
+
+        # Classificação ampliada para capturar mais casos de detalhe
+        text_upper = html.upper()
+
+        # Verifica se há NPU formatado (indicador forte de detalhe)
+        has_npu = bool(re.search(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}', html))
+
+        if has_npu:
+            # Indicadores de conteúdo de detalhe
+            has_relator_info = any(re.search(pattern, text_upper) for pattern in [
+                r'RELATOR',
+                r'DESEMBARGADOR',
+                r'JUIZ(A)?\s+FEDERAL'
+            ])
+
+            has_parties_info = any(re.search(pattern, text_upper) for pattern in [
+                r'APT[EO]',     # APTE/APTO
+                r'APD[AO]',     # APDA/APDO
+                r'AUTOR',
+                r'R[EÉ]U',
+                r'ADVOGAD[AO]',
+                r'PROCURADOR',
+                r'PART[EI]',
+                r'ENVOLVIDOS?'
+            ])
+
+            has_timeline_info = any(re.search(pattern, text_upper) for pattern in [
+                r'MOVIMENTA[ÇC][ÃA]O',
+                r'MOVIMENTOS?',
+                r'ANDAMENTOS?',
+                r'PETICIONAMENTO',
+                r'JUNTADA',
+                r'PUBLICA[ÇC][ÃA]O',
+                r'\d{1,2}/\d{1,2}/\d{4}',  # Datas
+                r'AUTUAD[AO]\s+EM'
+            ])
+
+            # Se tem NPU + pelo menos um indicador de conteúdo, considera detalhe
+            if has_relator_info or has_parties_info or has_timeline_info:
+                return 'detail'
+
+        # Se não é detalhe, tenta outras classificações
+        if is_list(html):
             return 'list'
         elif is_error(html):
             return 'error'
@@ -658,34 +717,126 @@ class Trf5Spider(scrapy.Spider):
         return None
 
     def _extract_relator(self, response: scrapy.http.Response) -> Optional[str]:
-        # Busca em células de tabela específicas do TRF5
-        # Estrutura: <td>RELATOR</td><td><b>: DESEMBARGADOR FEDERAL NOME</b></td>
+        """
+        Extrai relator com múltiplas estratégias para diferentes layouts do TRF5.
+
+        Tenta múltiplas abordagens para maximizar cobertura de casos.
+        """
+        # Estratégia 1: Tabelas estruturadas (padrão clássico)
+        relator = self._extract_relator_from_table(response)
+        if relator:
+            return relator
+
+        # Estratégia 2: Texto estruturado (divs, spans, etc.)
+        relator = self._extract_relator_from_text(response)
+        if relator:
+            return relator
+
+        # Estratégia 3: Busca ampla por padrões textuais
+        relator = self._extract_relator_from_patterns(response)
+        if relator:
+            return relator
+
+        # Estratégia 4: XPath genérico para casos edge
+        relator = self._extract_relator_xpath_fallback(response)
+        if relator:
+            return relator
+
+        return None
+
+    def _extract_relator_from_table(self, response: scrapy.http.Response) -> Optional[str]:
+        """Extrai relator de estruturas de tabela."""
         rows = response.css('table tr')
         for row in rows:
             cells = row.css('td')
             if len(cells) >= 2:
                 first_cell = clean_text(cells[0].css('::text').get() or '')
                 if 'relator' in first_cell.lower():
-                    second_cell = clean_text(cells[1].css('::text').get() or '')
-                    # Remove ":" do início se presente
-                    relator_name = re.sub(r'^\s*:\s*', '', second_cell)
-                    if relator_name:
-                        return normalize_relator(relator_name)
+                    # Busca texto em diferentes elementos da segunda célula
+                    second_cell_selectors = ['::text', 'b::text', 'strong::text', 'span::text']
+                    for sel in second_cell_selectors:
+                        second_cell = clean_text(cells[1].css(sel).get() or '')
+                        if second_cell:
+                            # Remove prefixos comuns
+                            relator_name = re.sub(r'^\s*[:;]\s*', '', second_cell)
+                            if relator_name:
+                                return normalize_relator(relator_name)
+        return None
 
-        # Fallback para outros padrões
+    def _extract_relator_from_text(self, response: scrapy.http.Response) -> Optional[str]:
+        """Extrai relator de elementos de texto estruturados."""
+        # Seletores específicos para diferentes layouts
         selectors = [
-            '//text()[contains(., "RELATOR")]',
             '.relator::text',
-            '.magistrado::text'
+            '.magistrado::text',
+            '.juiz::text',
+            '.desembargador::text',
+            'div:contains("RELATOR") + div::text',
+            'span:contains("RELATOR")::text',
+            'p:contains("RELATOR")::text',
+            '.info-relator::text',
+            '.dados-relator::text'
         ]
+
         for selector in selectors:
-            elements = response.xpath(selector) if selector.startswith('//') else response.css(selector)
+            elements = response.css(selector)
             for element in elements:
-                text_content = clean_text(element.get())
-                if 'relator' in text_content.lower():
-                    match = re.search(r'relator:?\s*(.+)', text_content, re.IGNORECASE)
-                    if match:
-                        return normalize_relator(match.group(1))
+                text_content = clean_text(element.get() or '')
+                if text_content:
+                    # Se já contém "relator", remove o prefixo
+                    if 'relator' in text_content.lower():
+                        match = re.search(r'relator:?\s*(.+)', text_content, re.IGNORECASE)
+                        if match:
+                            return normalize_relator(match.group(1))
+                    else:
+                        # Se não contém "relator", mas está em seletor específico, use direto
+                        return normalize_relator(text_content)
+        return None
+
+    def _extract_relator_from_patterns(self, response: scrapy.http.Response) -> Optional[str]:
+        """Extrai relator usando padrões textuais amplos."""
+        # Busca por padrões textuais em todo o HTML
+        text_patterns = [
+            r'RELATOR:?\s*([^\n\r<]+)',
+            r'Relator:?\s*([^\n\r<]+)',
+            r'DESEMBARGADOR(?:\s+FEDERAL)?:?\s*([^\n\r<]+)',
+            r'JUIZ(?:A)?\s+FEDERAL:?\s*([^\n\r<]+)',
+            r'(?:RELATOR|RELATORA)\s*-\s*([^\n\r<]+)'
+        ]
+
+        full_text = response.text
+        for pattern in text_patterns:
+            matches = re.finditer(pattern, full_text, re.IGNORECASE | re.MULTILINE)
+            for match in matches:
+                relator_text = clean_text(match.group(1))
+                if relator_text and len(relator_text) > 3:  # Filtro mínimo de tamanho
+                    return normalize_relator(relator_text)
+        return None
+
+    def _extract_relator_xpath_fallback(self, response: scrapy.http.Response) -> Optional[str]:
+        """Busca genérica com XPath como último recurso."""
+        xpath_selectors = [
+            '//text()[contains(upper-case(.), "RELATOR")]',
+            '//td[contains(upper-case(.), "RELATOR")]/following-sibling::td[1]//text()',
+            '//th[contains(upper-case(.), "RELATOR")]/following-sibling::td[1]//text()',
+            '//*[contains(upper-case(@class), "relator")]//text()',
+            '//*[contains(upper-case(@id), "relator")]//text()'
+        ]
+
+        for xpath in xpath_selectors:
+            try:
+                elements = response.xpath(xpath)
+                for element in elements:
+                    text_content = clean_text(element.get() or '')
+                    if text_content and 'relator' in text_content.lower():
+                        # Extrai apenas a parte do nome, removendo "RELATOR:"
+                        match = re.search(r'relator:?\s*(.+)', text_content, re.IGNORECASE)
+                        if match:
+                            candidate = clean_text(match.group(1))
+                            if candidate and len(candidate) > 3:
+                                return normalize_relator(candidate)
+            except Exception:
+                continue  # XPath pode falhar em HTML malformado
         return None
 
     def _extract_envolvidos(self, response: scrapy.http.Response) -> list:
@@ -755,6 +906,113 @@ class Trf5Spider(scrapy.Spider):
                             movimentacoes.append({'data': data_iso, 'texto': texto})
 
         return movimentacoes
+
+    # ----------------------------- HELPERS NPU ----------------------------- #
+    def _extract_npu_detail_link(self, response: scrapy.http.Response, target_npu: str) -> Optional[str]:
+        """
+        Extrai link de detalhe específico para NPU de forma robusta.
+
+        Evita capturar HTML completo e filtra links de movimentação interna.
+        Prioriza links que contenham o NPU alvo exato.
+        """
+        # Seletores específicos para links de processo, evitando movimentação
+        selectors = [
+            'a.linkar[href^="/processo/"]:not([href*="/movimentacao/"])',
+            'a[href^="/cp/processo/"]:not([href*="/movimentacao/"])',
+            'a[href*="/processo/"]:not([href*="/movimentacao/"]):not([href*="/movimento/"])',
+            'a[href*="processo"]:not([href*="movimentacao"]):not([href*="movimento"])'
+        ]
+
+        npu_regex = r'(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})'
+        melhor_link = None
+        melhor_score = 0
+
+        for selector in selectors:
+            links = response.css(selector)
+
+            for link in links:
+                href = link.attrib.get('href')
+                if not href:
+                    continue
+
+                # Ignora fragmentos, javascript e links relativos problemáticos
+                if href.startswith('#') or href.startswith('javascript:') or href == '/':
+                    continue
+
+                # Score baseado em relevância
+                score = 0
+
+                # Score máximo se contém o NPU exato
+                if target_npu in href:
+                    score += 100
+
+                # Score por padrão NPU válido
+                if re.search(npu_regex, href):
+                    score += 50
+
+                # Score por estrutura típica de detalhe
+                if '/processo/' in href and not any(x in href for x in ['/movimentacao/', '/movimento/', '/lista']):
+                    score += 25
+
+                # Prioriza links mais específicos (sem parâmetros extras)
+                if href.count('?') == 0 and href.count('&') == 0:
+                    score += 10
+
+                # Atualiza melhor link se score é maior
+                if score > melhor_score:
+                    melhor_score = score
+                    melhor_link = href
+
+                    # Se encontrou NPU exato, pode parar a busca
+                    if target_npu in href:
+                        break
+
+            # Se já encontrou um link com NPU exato, não precisa tentar outros seletores
+            if melhor_score >= 100:
+                break
+
+        if melhor_link:
+            self.logger.info(
+                "[numero] Link de detalhe selecionado (score=%d): %s",
+                melhor_score, melhor_link
+            )
+
+        return melhor_link
+
+    def _debug_page_content(self, html: str, url: str) -> None:
+        """
+        Gera log de debug mostrando indicadores presentes na página.
+        Útil para entender por que uma página não foi classificada como detalhe.
+        """
+        if not html:
+            self.logger.debug("[debug] Página vazia: %s", url)
+            return
+
+        text_upper = html.upper()
+        indicators = {
+            'npu': bool(re.search(r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}', html)),
+            'processo_ref': 'PROCESSO' in text_upper,
+            'relator': 'RELATOR' in text_upper,
+            'desembargador': 'DESEMBARGADOR' in text_upper,
+            'envolvidos': any(x in text_upper for x in ['AUTOR', 'REU', 'RÉU', 'ADVOGADO']),
+            'movimentacao': any(x in text_upper for x in ['MOVIMENTAÇÃO', 'ANDAMENTO', 'JUNTADA']),
+            'data_formato': bool(re.search(r'\d{1,2}/\d{1,2}/\d{4}', html)),
+            'autuacao': 'AUTUADO' in text_upper
+        }
+
+        present_indicators = [k for k, v in indicators.items() if v]
+
+        self.logger.debug(
+            "[debug] Indicadores presentes em %s: %s",
+            url, ', '.join(present_indicators) if present_indicators else 'nenhum'
+        )
+
+        # Se tem NPU mas não foi classificado como detalhe, mostra mais detalhes
+        if indicators['npu']:
+            self.logger.debug(
+                "[debug] Página tem NPU mas não foi classificada como detalhe. "
+                "Tamanho HTML: %d chars", len(html)
+            )
 
     # ----------------------------- HELPERS ROTA ESTÁVEL CNPJ ----------------------------- #
     def _extract_total_from_stable_page(self, response: scrapy.http.Response) -> Optional[int]:
