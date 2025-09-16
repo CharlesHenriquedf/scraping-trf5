@@ -3,6 +3,8 @@
 .claude/
 [Cc]LAUDE.md
 scripts/claude/
+testes_de_etapas
+arquvos_do_teste
 
 # Outros perfis/ferramentas de IA comuns (IDE/assistentes)
 .vscode/                 # evita expor extensões de IA/Claude/Copilot
@@ -17,6 +19,9 @@ prompts/**.md
 **/prompts.md
 agents/
 agents/**
+
+# Documentos de padrões que não devem ir para repositório
+docs/Padrao_commits.mkd
 
 # ============================
 # 🔒 Configs locais / segredos
@@ -41,3 +46,13 @@ __pycache__/
 .pytest_cache/
 .cache/
 logs/
+
+# ============================
+# 📁 Pasta de teste final
+# ============================
+teste_final/
+
+# ============================
+# 📊 Dados do MongoDB
+# ============================
+docker/data/

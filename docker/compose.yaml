@@ -1,0 +1,165 @@
+# =============================================================================
+# TRF5 Scraper - Docker Compose MongoDB Setup
+# =============================================================================
+# Provisionamento local do MongoDB para desenvolvimento e testes E2E
+#
+# Uso:
+#   cd docker
+#   docker compose up -d
+#   docker compose ps
+#   docker compose logs -f mongo
+#   docker compose down
+#
+# Backup/Restore:
+#   docker exec trf5-mongo sh -c "mongodump --db trf5 --archive" > ../backups/trf5-$(date +%F).archive
+#   docker exec -i trf5-mongo sh -c "mongorestore --archive" < ../backups/trf5-YYYY-MM-DD.archive
+
+# name: trf5 # Comentado para compatibilidade com docker-compose versões mais antigas
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: trf5-mongo
+
+    # Bind apenas em localhost para segurança
+    ports:
+      - "127.0.0.1:27017:27017"
+
+    # Configurações de autenticação
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpass
+      MONGO_INITDB_DATABASE: admin
+
+    # Volumes para persistência e inicialização
+    volumes:
+      # Dados persistentes
+      - trf5_mongo_data:/data/db
+      # Scripts de inicialização
+      - ./mongo/initdb.d:/docker-entrypoint-initdb.d:ro
+      # Configuração customizada (opcional)
+      - ./mongo/mongod.conf:/etc/mongod.conf:ro
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Configurações de saúde
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Configurações de recurso (opcional, para desenvolvimento)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+    # Configurações de rede
+    networks:
+      - trf5-network
+
+  # Serviço opcional: MongoDB Express (interface web)
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: trf5-mongo-express
+
+    # Interface web em localhost:8081
+    ports:
+      - "127.0.0.1:8081:8081"
+
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: rootpass
+      ME_CONFIG_MONGODB_URL: mongodb://root:rootpass@mongo:27017/
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin123
+
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    networks:
+      - trf5-network
+
+    # Comentar/descomentar para habilitar/desabilitar
+    profiles:
+      - tools
+
+# Volumes nomeados para persistência
+volumes:
+  trf5_mongo_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+
+# Rede dedicada
+networks:
+  trf5-network:
+    driver: bridge
+
+# =============================================================================
+# INSTRUÇÕES DE USO
+# =============================================================================
+
+# 1. SETUP INICIAL:
+#    cd docker
+#    mkdir -p data backups
+#    docker compose up -d
+
+# 2. VERIFICAR STATUS:
+#    docker compose ps
+#    docker compose logs mongo
+
+# 3. CONECTAR AO MONGODB:
+#    # Via aplicação (usar esta URI no .env):
+#    mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=admin
+#
+#    # Via mongosh direto:
+#    mongosh "mongodb://root:rootpass@localhost:27017/admin"
+#
+#    # Via mongosh para usuário da aplicação:
+#    mongosh "mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=admin"
+
+# 4. INTERFACE WEB (OPCIONAL):
+#    docker compose --profile tools up -d
+#    # Acesse: http://localhost:8081
+#    # User: admin, Password: admin123
+
+# 5. BACKUP/RESTORE:
+#    # Backup completo
+#    docker exec trf5-mongo sh -c "mongodump --db trf5 --archive" > ./backups/trf5-$(date +%F).archive
+#
+#    # Backup apenas dados estruturados
+#    docker exec trf5-mongo sh -c "mongodump --db trf5 --collection processos --archive" > ./backups/processos-$(date +%F).archive
+#
+#    # Restore
+#    docker exec -i trf5-mongo sh -c "mongorestore --archive" < ./backups/trf5-YYYY-MM-DD.archive
+
+# 6. LIMPEZA:
+#    docker compose down
+#    # Para remover dados também:
+#    docker compose down -v
+#    rm -rf data/
+
+# =============================================================================
+# CONFIGURAÇÕES DE SEGURANÇA
+# =============================================================================
+
+# - Bind apenas em 127.0.0.1 (não acessível externamente)
+# - Usuário root separado do usuário da aplicação
+# - Autenticação obrigatória
+# - Rede Docker isolada
+# - Healthcheck para monitoramento
+
+# IMPORTANTE: Esta configuração é apenas para desenvolvimento local.
+# Para produção, use MongoDB Atlas ou configure TLS, firewall, etc.
