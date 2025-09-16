@@ -9,6 +9,20 @@ cortesia, integração com MongoDB e configurações de encoding.
 """
 
 import os
+from pathlib import Path
+
+# Carregamento automático de variáveis de ambiente do arquivo .env
+try:
+    from dotenv import load_dotenv
+    # Procura o arquivo .env na raiz do projeto
+    env_path = Path(__file__).parent.parent / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"[INFO] Variáveis carregadas de: {env_path}")
+    else:
+        print(f"[WARNING] Arquivo .env não encontrado em: {env_path}")
+except ImportError:
+    print("[WARNING] python-dotenv não encontrado. Instale com: pip install python-dotenv")
 
 # Informações básicas do projeto
 BOT_NAME = 'trf5_scraper'

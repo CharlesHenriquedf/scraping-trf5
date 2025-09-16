@@ -2,7 +2,7 @@
 
 Este diretório contém a configuração Docker Compose para executar MongoDB localmente para o TRF5 Scraper.
 
-## 🚀 Início Rápido
+## Início Rápido
 
 ```bash
 # Subir o MongoDB
@@ -18,7 +18,7 @@ docker compose logs -f mongo
 mongosh "mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=admin"
 ```
 
-## 📁 Estrutura
+## Estrutura
 
 ```
 docker/
@@ -32,7 +32,7 @@ docker/
 └── README.md                 # Este arquivo
 ```
 
-## 🗄️ Usuários e Acesso
+## Usuários e Acesso
 
 ### Root (Admin)
 - **Usuário**: `root`
@@ -44,7 +44,7 @@ docker/
 - **Senha**: `trf5pass`
 - **URI**: `mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=admin`
 
-## 🔧 Comandos Úteis
+## Comandos Úteis
 
 ### Gerenciar Container
 
@@ -102,7 +102,7 @@ docker exec -it trf5-mongo bash
 docker exec -it trf5-mongo mongosh "mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=admin"
 ```
 
-## 📊 Verificação de Funcionamento
+## Verificação de Funcionamento
 
 ```bash
 # 1. Container rodando
@@ -118,14 +118,14 @@ docker exec trf5-mongo mongosh "mongodb://trf5:trf5pass@localhost:27017/trf5?aut
 mongosh "mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=admin" --eval "db.processos.find().limit(1)"
 ```
 
-## 🔒 Segurança
+## Segurança
 
 - **Bind local**: MongoDB só aceita conexões de localhost
 - **Autenticação**: Usuário root separado do usuário da aplicação
 - **Permissões**: Usuário `trf5` tem apenas readWrite no banco `trf5`
 - **Rede isolada**: Container roda em rede Docker dedicada
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### MongoDB não inicia
 
@@ -165,7 +165,7 @@ docker stats trf5-mongo
 docker compose logs mongo | grep slow
 ```
 
-## 📋 Configuração da Aplicação
+## Configuração da Aplicação
 
 No arquivo `.env` da aplicação, use:
 
@@ -174,7 +174,7 @@ MONGO_URI=mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=admin
 MONGO_DB=trf5
 ```
 
-## 🧹 Limpeza Completa
+## Limpeza Completa
 
 ```bash
 # Parar e remover tudo

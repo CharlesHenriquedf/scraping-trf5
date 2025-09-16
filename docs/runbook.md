@@ -1,8 +1,8 @@
 # Runbook Operacional - TRF5 Scraper
 
-Este documento fornece instruções operacionais detalhadas para execução, monitoramento e troubleshooting do TRF5 Scraper.
+Este documento fornece instruï¿½ï¿½es operacionais detalhadas para execuï¿½ï¿½o, monitoramento e troubleshooting do TRF5 Scraper.
 
-## <¯ Checklist de Pré-Execução
+## Checklist de Pre-Execucao
 
 Antes de executar qualquer comando, verifique:
 
@@ -18,16 +18,16 @@ mongosh --eval "db.runCommand('ping')"
 # 3. Conectividade com TRF5
 curl -I http://www5.trf5.jus.br/cp/
 
-# 4. Spiders disponíveis
+# 4. Spiders disponï¿½veis
 scrapy list
 # Deve retornar: trf5, parse_raw
 
-# 5. Variáveis de ambiente
+# 5. Variï¿½veis de ambiente
 echo $MONGO_URI
 echo $MONGO_DB
 ```
 
-## =Ë Comandos de Execução
+## Comandos de Execucao
 
 ### 1. Busca por NPU (Teste Individual)
 
@@ -45,10 +45,10 @@ scrapy crawl trf5 \
   -s LOG_LEVEL=INFO \
   -s LOG_FILE=logs/npu_$(date +%Y%m%d_%H%M%S).log
 
-# Teste de idempotência (executar 2x o mesmo)
+# Teste de idempotï¿½ncia (executar 2x o mesmo)
 scrapy crawl trf5 -a modo=numero -a valor="0015648-78.1999.4.05.0000" -s LOG_LEVEL=INFO
-# Primeira execução: deve logar "insert"
-# Segunda execução: deve logar "update"
+# Primeira execuï¿½ï¿½o: deve logar "insert"
+# Segunda execuï¿½ï¿½o: deve logar "update"
 ```
 
 ### 2. Descoberta por CNPJ
@@ -75,17 +75,17 @@ scrapy crawl trf5 \
 ### 3. Reprocessamento Offline
 
 ```bash
-# Reprocessar últimas 10 páginas
+# Reprocessar ï¿½ltimas 10 pï¿½ginas
 scrapy crawl parse_raw -a limit=10 -s LOG_LEVEL=INFO
 
-# Reprocessar por tipo específico
+# Reprocessar por tipo especï¿½fico
 scrapy crawl parse_raw -a limit=20 -a tipo=detalhe -s LOG_LEVEL=INFO
 
 # Reprocessar por tipo de busca
 scrapy crawl parse_raw -a limit=15 -a busca=numero -s LOG_LEVEL=INFO
 ```
 
-## =' Scripts de Automação
+## =' Scripts de Automaï¿½ï¿½o
 
 ### Executar Todos os NPUs do BB
 
@@ -95,9 +95,9 @@ scrapy crawl parse_raw -a limit=15 -a busca=numero -s LOG_LEVEL=INFO
 
 **O que faz:**
 - Executa todos os 6 NPUs fornecidos pelo Banco do Brasil
-- Testa idempotência executando cada NPU 2 vezes
-- Salva logs individuais para cada execução
-- Gera relatório final de sucesso/falha
+- Testa idempotï¿½ncia executando cada NPU 2 vezes
+- Salva logs individuais para cada execuï¿½ï¿½o
+- Gera relatï¿½rio final de sucesso/falha
 
 ### Descoberta por CNPJ com Limites
 
@@ -108,8 +108,8 @@ scrapy crawl parse_raw -a limit=15 -a busca=numero -s LOG_LEVEL=INFO
 **O que faz:**
 - Executa descoberta pelo CNPJ do Banco do Brasil
 - Aplica limites seguros (max_pages=2, max_details_per_page=5)
-- Monitora paginação e classificação de páginas
-- Salva evidências de listas e detalhes coletados
+- Monitora paginaï¿½ï¿½o e classificaï¿½ï¿½o de pï¿½ginas
+- Salva evidï¿½ncias de listas e detalhes coletados
 
 ### Reprocessamento Offline
 
@@ -118,48 +118,48 @@ scrapy crawl parse_raw -a limit=15 -a busca=numero -s LOG_LEVEL=INFO
 ```
 
 **O que faz:**
-- Reprocessa páginas HTML salvas sem fazer requisições de rede
+- Reprocessa pï¿½ginas HTML salvas sem fazer requisiï¿½ï¿½es de rede
 - Testa a robustez dos extractors
-- Útil para debug e refinamento dos parsers
+- ï¿½til para debug e refinamento dos parsers
 
-### Consultas MongoDB Rápidas
+### Consultas MongoDB Rï¿½pidas
 
 ```bash
 ./scripts/mongo_queries.sh
 ```
 
 **O que faz:**
-- Executa consultas padrão de verificação
-- Mostra últimas páginas coletadas
-- Lista processos extraídos
+- Executa consultas padrï¿½o de verificaï¿½ï¿½o
+- Mostra ï¿½ltimas pï¿½ginas coletadas
+- Lista processos extraï¿½dos
 - Verifica integridade dos dados
 
-## =Ê Monitoramento Durante Execução
+## =ï¿½ Monitoramento Durante Execuï¿½ï¿½o
 
-### Logs Críticos a Observar
+### Logs Crï¿½ticos a Observar
 
-#### 1. Iniciação do Spider
+#### 1. Iniciaï¿½ï¿½o do Spider
 ```
 [trf5] INFO: Iniciando coleta TRF5 (modo=numero, valor=0015648-78.1999.4.05.0000, max_pages=5, max_details=10)
 ```
 
-#### 2. Classificação de Páginas
+#### 2. Classificaï¿½ï¿½o de Pï¿½ginas
 ```
-[trf5] INFO: Página de lista processada (page=0, tipo=list, url=http://...)
-[trf5] INFO: Página não é detalhe conforme esperado: http://...
-```
-
-#### 3. Paginação Detectada
-```
-[trf5] INFO: Paginação detectada: Total=157, last_page=15
-[trf5] INFO: Extraídos 5 links de detalhe desta página (total coletado: 12)
+[trf5] INFO: Pï¿½gina de lista processada (page=0, tipo=list, url=http://...)
+[trf5] INFO: Pï¿½gina nï¿½o ï¿½ detalhe conforme esperado: http://...
 ```
 
-#### 4. Persistência MongoDB
+#### 3. Paginaï¿½ï¿½o Detectada
+```
+[trf5] INFO: Paginaï¿½ï¿½o detectada: Total=157, last_page=15
+[trf5] INFO: Extraï¿½dos 5 links de detalhe desta pï¿½gina (total coletado: 12)
+```
+
+#### 4. Persistï¿½ncia MongoDB
 ```
 [mongo] INFO: [raw] saved detalhe (0015648-78.1999.4.05.0000) http://...
-[mongo] INFO: [processos] insert _id=0015648-78.1999.4.05.0000 relator=João da Silva
-[mongo] INFO: [processos] update _id=0015648-78.1999.4.05.0000 relator=João da Silva
+[mongo] INFO: [processos] insert _id=0015648-78.1999.4.05.0000 relator=Joï¿½o da Silva
+[mongo] INFO: [processos] update _id=0015648-78.1999.4.05.0000 relator=Joï¿½o da Silva
 ```
 
 #### 5. Rate Limiting e Cortesia
@@ -176,24 +176,24 @@ twisted.internet.error.ConnectError: An error occurred
 scrapy.downloadermiddlewares.retry] DEBUG: Retrying <GET http://...>
 ```
 
-#### L Classificação Errada
+#### L Classificaï¿½ï¿½o Errada
 ```
-[trf5] WARNING: Página não é lista conforme esperado: http://...
-[trf5] WARNING: Página de erro detectada: http://...
+[trf5] WARNING: Pï¿½gina nï¿½o ï¿½ lista conforme esperado: http://...
+[trf5] WARNING: Pï¿½gina de erro detectada: http://...
 ```
 
-#### L Extração Falhou
+#### L Extraï¿½ï¿½o Falhou
 ```
-[trf5] WARNING: Número do processo não encontrado em http://...
+[trf5] WARNING: Nï¿½mero do processo nï¿½o encontrado em http://...
 [trf5] ERROR: Erro ao extrair dados do processo http://... KeyError: 'relator'
 ```
 
-#### L MongoDB Indisponível
+#### L MongoDB Indisponï¿½vel
 ```
 [mongo] ERROR: Erro ao conectar no MongoDB: ServerSelectionTimeoutError
 ```
 
-## =Ä Consultas MongoDB de Verificação
+## =ï¿½ Consultas MongoDB de Verificaï¿½ï¿½o
 
 ### Conectar ao MongoDB
 
@@ -207,7 +207,7 @@ docker exec -it trf5-mongo mongosh "mongodb://trf5:trf5pass@localhost:27017/trf5
 
 ### Consultas Essenciais
 
-#### 1. Verificar Últimas Páginas Coletadas
+#### 1. Verificar ï¿½ltimas Pï¿½ginas Coletadas
 ```javascript
 db.raw_pages.find({}, {
   url: 1,
@@ -220,7 +220,7 @@ db.raw_pages.find({}, {
 }).sort({_id: -1}).limit(10).toArray()
 ```
 
-#### 2. Contar Páginas por Tipo
+#### 2. Contar Pï¿½ginas por Tipo
 ```javascript
 db.raw_pages.aggregate([
   {$group: {
@@ -230,7 +230,7 @@ db.raw_pages.aggregate([
 ])
 ```
 
-#### 3. Verificar Processos Extraídos
+#### 3. Verificar Processos Extraï¿½dos
 ```javascript
 db.processos.find({}, {
   numero_processo: 1,
@@ -267,16 +267,16 @@ db.processos.find({$or: [{relator: null}, {relator: ""}]}).count()
 // Processos sem envolvidos
 db.processos.find({$or: [{envolvidos: null}, {envolvidos: []}]}).count()
 
-// Processos sem movimentações
+// Processos sem movimentaï¿½ï¿½es
 db.processos.find({$or: [{movimentacoes: null}, {movimentacoes: []}]}).count()
 
-// Datas não ISO
+// Datas nï¿½o ISO
 db.processos.find({data_autuacao: {$not: /^\d{4}-\d{2}-\d{2}/}}).count()
 ```
 
-## =¨ Troubleshooting
+## =ï¿½ Troubleshooting
 
-### Problema: Scrapy não encontra spiders
+### Problema: Scrapy nï¿½o encontra spiders
 
 **Sintoma:**
 ```
@@ -284,7 +284,7 @@ AttributeError: 'NoneType' object has no attribute 'split'
 spider not found: trf5
 ```
 
-**Solução:**
+**Soluï¿½ï¿½o:**
 ```bash
 # Verificar estrutura do projeto
 ls -la trf5_scraper/spiders/
@@ -301,26 +301,26 @@ python3 -m py_compile trf5_scraper/spiders/trf5.py
 pymongo.errors.ServerSelectionTimeoutError: localhost:27017
 ```
 
-**Solução:**
+**Soluï¿½ï¿½o:**
 ```bash
 # Verificar status
 docker ps | grep mongo
 
-# Restart se necessário
+# Restart se necessï¿½rio
 docker compose -f docker/compose.yaml restart
 
 # Verificar logs
 docker logs trf5-mongo
 ```
 
-### Problema: TRF5 site inacessível
+### Problema: TRF5 site inacessï¿½vel
 
 **Sintoma:**
 ```
 twisted.internet.error.DNSLookupError
 ```
 
-**Solução:**
+**Soluï¿½ï¿½o:**
 ```bash
 # Testar conectividade
 ping www5.trf5.jus.br
@@ -338,63 +338,63 @@ echo $https_proxy
 [scrapy.downloadermiddlewares.retry] DEBUG: Retrying <GET http://...> (failed 1 times): 429
 ```
 
-**Solução:**
+**Soluï¿½ï¿½o:**
 ```bash
 # Aumentar delays
 scrapy crawl trf5 -a modo=... -s DOWNLOAD_DELAY=2.0 -s AUTOTHROTTLE_START_DELAY=3.0
 
-# Reduzir concorrência
+# Reduzir concorrï¿½ncia
 scrapy crawl trf5 -a modo=... -s CONCURRENT_REQUESTS=1
 ```
 
-### Problema: Dados extraídos incorretos
+### Problema: Dados extraï¿½dos incorretos
 
 **Sintoma:**
 ```javascript
 // MongoDB mostra campos vazios ou incorretos
-db.processos.find({relator: "DESEMBARGADOR FEDERAL João"}) // título não removido
+db.processos.find({relator: "DESEMBARGADOR FEDERAL Joï¿½o"}) // tï¿½tulo nï¿½o removido
 ```
 
-**Solução:**
+**Soluï¿½ï¿½o:**
 ```bash
 # Reprocessar offline para testar extractors
 scrapy crawl parse_raw -a limit=5 -s LOG_LEVEL=DEBUG
 
-# Verificar normalização
+# Verificar normalizaï¿½ï¿½o
 python3 -c "
 from trf5_scraper.utils.normalize import normalize_relator
-print(normalize_relator('DESEMBARGADOR FEDERAL João Silva'))
+print(normalize_relator('DESEMBARGADOR FEDERAL Joï¿½o Silva'))
 "
 ```
 
-## =È Métricas de Sucesso
+## =ï¿½ Mï¿½tricas de Sucesso
 
-### Execução por NPU
+### Execuï¿½ï¿½o por NPU
 -  6/6 NPUs processados com sucesso
--  Segunda execução de cada NPU gera "update" (não "insert")
--  Todos campos obrigatórios preenchidos
+-  Segunda execuï¿½ï¿½o de cada NPU gera "update" (nï¿½o "insert")
+-  Todos campos obrigatï¿½rios preenchidos
 -  Datas em formato ISO-8601
 
 ### Descoberta por CNPJ
--  Paginação detectada corretamente
+-  Paginaï¿½ï¿½o detectada corretamente
 -  Limites respeitados (max_pages, max_details_per_page)
--  Classificação correta: lista ’ detalhes
--  Processos únicos salvos (sem duplicatas)
+-  Classificaï¿½ï¿½o correta: lista ï¿½ detalhes
+-  Processos ï¿½nicos salvos (sem duplicatas)
 
 ### Reprocessamento Offline
--  Execução sem requisições de rede
--  Mesmos dados extraídos do HTML salvo
--  Logs "reprocessando" visíveis
+-  Execuï¿½ï¿½o sem requisiï¿½ï¿½es de rede
+-  Mesmos dados extraï¿½dos do HTML salvo
+-  Logs "reprocessando" visï¿½veis
 
 ### Qualidade dos Dados
--  Relator sem prefixos ("João Silva" não "Des. João Silva")
+-  Relator sem prefixos ("Joï¿½o Silva" nï¿½o "Des. Joï¿½o Silva")
 -  Envolvidos com papel e nome
--  Movimentações em ordem cronológica
--  NPU usado como _id para idempotência
+-  Movimentaï¿½ï¿½es em ordem cronolï¿½gica
+-  NPU usado como _id para idempotï¿½ncia
 
-## <¯ Checklist Final de Validação
+## <ï¿½ Checklist Final de Validaï¿½ï¿½o
 
-Antes de considerar a execução completa:
+Antes de considerar a execuï¿½ï¿½o completa:
 
 ```bash
 # 1. Executar todos NPUs
@@ -412,23 +412,23 @@ Antes de considerar a execução completa:
 # 5. Executar QA completo
 ./scripts/claude/post_checks_trf5.sh
 
-# 6. Verificar evidências
+# 6. Verificar evidï¿½ncias
 ls -la docs/evidencias/
 ```
 
-### Critérios de Aceite Final
+### Critï¿½rios de Aceite Final
 
 - [ ] 6 NPUs do BB salvos em `processos`
 - [ ] Descoberta por CNPJ funcionando com limites
 - [ ] HTML bruto salvo em `raw_pages`
-- [ ] Idempotência comprovada (logs insert’update)
+- [ ] Idempotï¿½ncia comprovada (logs insertï¿½update)
 - [ ] Reprocessamento offline operacional
-- [ ] Políticas de cortesia ativas
+- [ ] Polï¿½ticas de cortesia ativas
 - [ ] Logs claros e informativos
-- [ ] Consultas MongoDB retornam dados válidos
+- [ ] Consultas MongoDB retornam dados vï¿½lidos
 
 ---
 
-**Nota:** Este runbook assume execução em ambiente Linux/Mac. Para Windows, adapte os comandos conforme necessário.
+**Nota:** Este runbook assume execuï¿½ï¿½o em ambiente Linux/Mac. Para Windows, adapte os comandos conforme necessï¿½rio.
 
 **Contato:** Verificar logs detalhados em caso de problemas. Todos os comandos geram logs informativos para troubleshooting.

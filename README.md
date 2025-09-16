@@ -30,9 +30,15 @@ Para cada processo, o scraper extrai:
 
 ### Pré-requisitos
 
+#### Obrigatórios
 - **Python 3.11+**
-- **MongoDB** (local ou via Docker)
+- **Docker** (para MongoDB via container)
 - **Git**
+
+#### Opcionais (para scripts de automação)
+- **mongosh** ou **mongo** - Cliente MongoDB para verificações
+  - Instalação: https://docs.mongodb.com/mongosh/install/
+  - Usado apenas por scripts auxiliares em `scripts/`
 
 ### 1. Clone o repositório
 
@@ -71,9 +77,18 @@ Certifique-se que o MongoDB está rodando em `localhost:27017`
 
 ### 5. Configurar variáveis de ambiente
 
+**IMPORTANTE**: O arquivo `.env` é carregado automaticamente pelo Scrapy. Não é necessário definir variáveis manualmente no terminal.
+
 ```bash
 cp config/.env.example .env
-# Editar .env conforme necessário
+# O arquivo .env já vem pré-configurado para Docker
+# Editar apenas se necessário para seu ambiente específico
+```
+
+**Configuração padrão (funciona com Docker):**
+```bash
+MONGO_URI=mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=trf5
+MONGO_DB=trf5
 ```
 
 ## Como Usar
@@ -95,8 +110,10 @@ scrapy crawl trf5 -a modo=numero -a valor="0015648-78.1999.4.05.0000" -s LOG_LEV
 
 ### Descoberta por CNPJ
 
+**IMPORTANTE**: A busca por CNPJ só retornará resultados se a empresa possuir processos ativos no sistema TRF5. Use CNPJs reais de empresas que tenham processos na justiça federal da 5ª região (AL, CE, PB, PE, RN, SE).
+
 ```bash
-# Busca processos do Banco do Brasil (limitado para teste)
+# Exemplo com CNPJ do Banco do Brasil - pode não retornar resultados
 scrapy crawl trf5 \
   -a modo=cnpj \
   -a valor="00.000.000/0001-91" \
@@ -104,6 +121,8 @@ scrapy crawl trf5 \
   -a max_details_per_page=5 \
   -s LOG_LEVEL=INFO
 ```
+
+**Dica de uso**: Para verificar se um CNPJ possui processos, faça primeiro uma busca com `max_pages=1 max_details_per_page=1` antes de executar uma coleta completa.
 
 ### Reprocessamento Offline
 

@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # =============================================================================
-# TRF5 Scraper - Execução de Todos os NPUs do Banco do Brasil
+# TRF5 Scraper - Execuï¿½ï¿½o de Todos os NPUs do Banco do Brasil
 # =============================================================================
 # Este script executa a coleta de todos os NPUs fornecidos pelo Banco do Brasil
-# para o desafio técnico, testando também a idempotência (executa cada NPU 2x)
+# para o desafio tï¿½cnico, testando tambï¿½m a idempotï¿½ncia (executa cada NPU 2x)
 
 set -e
 
@@ -15,7 +15,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# Configurações
+# Configuraï¿½ï¿½es
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="$PROJECT_DIR/logs"
@@ -36,7 +36,7 @@ TOTAL_EXECUTIONS=0
 SUCCESS_COUNT=0
 FAILED_COUNT=0
 
-# Função para logging
+# Funï¿½ï¿½o para logging
 log() {
     echo -e "${BLUE}[$(date '+%H:%M:%S')]${NC} $1"
 }
@@ -50,10 +50,10 @@ error() {
 }
 
 warning() {
-    echo -e "${YELLOW} ${NC} $1"
+    echo -e "${YELLOW}ï¿½${NC} $1"
 }
 
-# Função para executar NPU
+# Funï¿½ï¿½o para executar NPU
 execute_npu() {
     local npu="$1"
     local attempt="$2"
@@ -61,7 +61,7 @@ execute_npu() {
 
     log "Executando NPU: $npu (tentativa $attempt)"
 
-    # Garantir que está no diretório correto
+    # Garantir que estï¿½ no diretï¿½rio correto
     cd "$PROJECT_DIR"
 
     # Ativar ambiente virtual se existir
@@ -84,75 +84,90 @@ execute_npu() {
     fi
 }
 
-# Função para verificar MongoDB
+# Funï¿½ï¿½o para verificar MongoDB
 check_mongodb() {
     log "Verificando conectividade MongoDB..."
 
+    # Tentativa 1: usar mongosh ou mongo se disponï¿½veis
     if command -v mongosh &> /dev/null; then
         MONGO_CMD="mongosh"
     elif command -v mongo &> /dev/null; then
         MONGO_CMD="mongo"
     else
-        error "MongoDB client não encontrado (mongosh ou mongo)"
-        return 1
+        MONGO_CMD=""
     fi
 
-    # Testar conexão
-    if timeout 10 "$MONGO_CMD" \
-        "${MONGO_URI:-mongodb://localhost:27017}" \
-        --quiet \
-        --eval "db.runCommand('ping')" &>/dev/null; then
-        success "MongoDB conectado"
-        return 0
-    else
-        error "MongoDB não acessível em ${MONGO_URI:-mongodb://localhost:27017}"
-        return 1
+    if [ -n "$MONGO_CMD" ]; then
+        # Testar conexï¿½o com cliente nativo
+        if timeout 10 "$MONGO_CMD" \
+            "${MONGO_URI:-mongodb://localhost:27017}" \
+            --quiet \
+            --eval "db.runCommand('ping')" &>/dev/null; then
+            success "MongoDB conectado (cliente nativo)"
+            return 0
+        fi
     fi
+
+    # Tentativa 2: usar Docker se o container estiver rodando
+    if docker ps | grep -q "trf5-mongo" && docker exec trf5-mongo mongosh --version &>/dev/null; then
+        if timeout 10 docker exec trf5-mongo mongosh \
+            "${MONGO_URI:-mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=trf5}" \
+            --quiet \
+            --eval "db.runCommand('ping')" &>/dev/null; then
+            success "MongoDB conectado (via Docker)"
+            return 0
+        fi
+    fi
+
+    # Se chegou aqui, nï¿½o conseguiu conectar
+    warning "MongoDB nï¿½o conectado. Para usar Docker:"
+    echo "  cd docker && docker compose up -d"
+    return 1
 }
 
-# Função para verificar pré-requisitos
+# Funï¿½ï¿½o para verificar prï¿½-requisitos
 check_prerequisites() {
-    log "Verificando pré-requisitos..."
+    log "Verificando prï¿½-requisitos..."
 
-    # Verificar se estamos no diretório correto
+    # Verificar se estamos no diretï¿½rio correto
     if [ ! -f "scrapy.cfg" ] || [ ! -d "trf5_scraper" ]; then
-        error "Execute este script do diretório raiz do projeto TRF5 Scraper"
+        error "Execute este script do diretï¿½rio raiz do projeto TRF5 Scraper"
         exit 1
     fi
 
     # Verificar Scrapy
     if ! command -v scrapy &> /dev/null; then
-        error "Scrapy não encontrado. Ative o ambiente virtual:"
+        error "Scrapy nï¿½o encontrado. Ative o ambiente virtual:"
         echo "  source .venv/bin/activate"
         exit 1
     fi
 
     # Verificar spiders
     if ! scrapy list | grep -q "trf5"; then
-        error "Spider 'trf5' não encontrado"
+        error "Spider 'trf5' nï¿½o encontrado"
         exit 1
     fi
 
     # Verificar MongoDB
     if ! check_mongodb; then
-        warning "MongoDB não conectado. Para usar Docker:"
+        warning "MongoDB nï¿½o conectado. Para usar Docker:"
         echo "  cd docker && docker compose up -d"
         exit 1
     fi
 
-    success "Todos os pré-requisitos verificados"
+    success "Todos os prï¿½-requisitos verificados"
 }
 
-# Função para gerar relatório
+# Funï¿½ï¿½o para gerar relatï¿½rio
 generate_report() {
     local report_file="$LOG_DIR/npu_execution_report_${TIMESTAMP}.txt"
 
     {
         echo "=================================="
-        echo "TRF5 Scraper - Relatório de Execução NPUs BB"
+        echo "TRF5 Scraper - Relatï¿½rio de Execuï¿½ï¿½o NPUs BB"
         echo "=================================="
         echo "Data: $(date)"
-        echo "Total de execuções: $TOTAL_EXECUTIONS"
+        echo "Total de execuï¿½ï¿½es: $TOTAL_EXECUTIONS"
         echo "Sucessos: $SUCCESS_COUNT"
         echo "Falhas: $FAILED_COUNT"
         echo "Taxa de sucesso: $(( SUCCESS_COUNT * 100 / TOTAL_EXECUTIONS ))%"
@@ -167,26 +182,26 @@ generate_report() {
     } > "$report_file"
 
     echo ""
-    success "Relatório salvo em: $report_file"
+    success "Relatï¿½rio salvo em: $report_file"
 }
 
 # Banner principal
 main() {
     echo "=================================="
-    echo "TRF5 Scraper - Execução NPUs BB"
+    echo "TRF5 Scraper - Execuï¿½ï¿½o NPUs BB"
     echo "=================================="
     echo "Executando ${#NPUS_BB[@]} NPUs do Banco do Brasil"
-    echo "Cada NPU será executado 2 vezes para testar idempotência"
+    echo "Cada NPU serï¿½ executado 2 vezes para testar idempotï¿½ncia"
     echo ""
 
-    # Criar diretório de logs
+    # Criar diretï¿½rio de logs
     mkdir -p "$LOG_DIR"
 
-    # Verificar pré-requisitos
+    # Verificar prï¿½-requisitos
     check_prerequisites
 
     echo ""
-    log "Iniciando execução de NPUs..."
+    log "Iniciando execuï¿½ï¿½o de NPUs..."
     echo ""
 
     # Executar cada NPU duas vezes
@@ -195,8 +210,8 @@ main() {
         log "Processando NPU: $npu"
         echo ""
 
-        # Primeira execução (deve fazer INSERT)
-        log "1ª execução (esperado: INSERT)"
+        # Primeira execuï¿½ï¿½o (deve fazer INSERT)
+        log "1ï¿½ execuï¿½ï¿½o (esperado: INSERT)"
         if execute_npu "$npu" "1"; then
             ((SUCCESS_COUNT++))
         else
@@ -204,10 +219,10 @@ main() {
         fi
         ((TOTAL_EXECUTIONS++))
 
-        sleep 2  # Pequena pausa entre execuções
+        sleep 2  # Pequena pausa entre execuï¿½ï¿½es
 
-        # Segunda execução (deve fazer UPDATE - idempotência)
-        log "2ª execução (esperado: UPDATE - idempotência)"
+        # Segunda execuï¿½ï¿½o (deve fazer UPDATE - idempotï¿½ncia)
+        log "2ï¿½ execuï¿½ï¿½o (esperado: UPDATE - idempotï¿½ncia)"
         if execute_npu "$npu" "2"; then
             ((SUCCESS_COUNT++))
         else
@@ -221,16 +236,25 @@ main() {
     echo ""
     echo ""
 
-    # Gerar relatório
+    # Gerar relatï¿½rio
     generate_report
 
-    # Verificação final no MongoDB
+    # Verificaï¿½ï¿½o final no MongoDB
     log "Verificando dados no MongoDB..."
+
+    # Determinar comando MongoDB a usar
+    MONGO_CMD=""
+    MONGO_CONNECTION=""
 
     if command -v mongosh &> /dev/null; then
         MONGO_CMD="mongosh"
-    else
+        MONGO_CONNECTION="${MONGO_URI:-mongodb://localhost:27017/trf5}"
+    elif command -v mongo &> /dev/null; then
         MONGO_CMD="mongo"
+        MONGO_CONNECTION="${MONGO_URI:-mongodb://localhost:27017/trf5}"
+    elif docker ps | grep -q "trf5-mongo"; then
+        MONGO_CMD="docker exec trf5-mongo mongosh"
+        MONGO_CONNECTION="${MONGO_URI:-mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=trf5}"
     fi
 
     # Verificar se todos os NPUs foram salvos
@@ -251,16 +275,16 @@ main() {
 
     # Resultado final
     if [ $FAILED_COUNT -eq 0 ]; then
-        success "<‰ Todas as execuções concluídas com sucesso!"
-        success "=Ê $SUCCESS_COUNT/$TOTAL_EXECUTIONS execuções bem-sucedidas"
-        success "=Ä Dados verificados no MongoDB"
+        success "<ï¿½ Todas as execuï¿½ï¿½es concluï¿½das com sucesso!"
+        success "=ï¿½ $SUCCESS_COUNT/$TOTAL_EXECUTIONS execuï¿½ï¿½es bem-sucedidas"
+        success "=ï¿½ Dados verificados no MongoDB"
         exit 0
     else
-        error "L $FAILED_COUNT/$TOTAL_EXECUTIONS execuções falharam"
-        warning "=Ë Verifique os logs em $LOG_DIR para detalhes"
+        error "L $FAILED_COUNT/$TOTAL_EXECUTIONS execuï¿½ï¿½es falharam"
+        warning "=ï¿½ Verifique os logs em $LOG_DIR para detalhes"
         exit 1
     fi
 }
 
-# Executar função principal
+# Executar funï¿½ï¿½o principal
 main "$@"
