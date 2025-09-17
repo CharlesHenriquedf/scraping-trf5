@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # =============================================================================
-# TRF5 Scraper - Consultas MongoDB R�pidas
+# TRF5 Scraper - Consultas MongoDB Rapidas
 # =============================================================================
-# Este script executa consultas padronizadas no MongoDB para verifica��o
+# Este script executa consultas padronizadas no MongoDB para verificacao
 # dos dados coletados pelo TRF5 Scraper
 
 set -e
@@ -16,11 +16,11 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Configura��es
+# Configuracoes
 MONGO_URI=${MONGO_URI:-"mongodb://localhost:27017"}
 MONGO_DB=${MONGO_DB:-"trf5"}
 
-# NPUs do Banco do Brasil para verifica��o
+# NPUs do Banco do Brasil para verificacao
 NPUS_BB=(
     "0015648-78.1999.4.05.0000"
     "0012656-90.2012.4.05.0000"
@@ -30,7 +30,7 @@ NPUS_BB=(
     "0000560-67.2017.4.05.0000"
 )
 
-# Fun��o para logging
+# Funcao para logging
 log() {
     echo -e "${BLUE}[$(date '+%H:%M:%S')]${NC} $1"
 }
@@ -44,14 +44,14 @@ error() {
 }
 
 warning() {
-    echo -e "${YELLOW}�${NC} $1"
+    echo -e "${YELLOW}a${NC} $1"
 }
 
 info() {
     echo -e "${CYAN}9${NC} $1"
 }
 
-# Fun��o para verificar MongoDB
+# Funcao para verificar MongoDB
 check_mongodb() {
     log "Verificando conectividade MongoDB..."
 
@@ -60,17 +60,17 @@ check_mongodb() {
     elif command -v mongo &> /dev/null; then
         MONGO_CMD="mongo"
     else
-        warning "MongoDB client n�o encontrado (mongosh ou mongo)"
+        warning "MongoDB client nao encontrado (mongosh ou mongo)"
         echo "Para usar este script, instale o MongoDB client:"
         echo "  # Ubuntu/Debian"
         echo "  sudo apt install mongodb-clients"
         echo "  # ou baixe mongosh do site oficial do MongoDB"
         echo ""
-        info "Pulando consultas MongoDB (cliente n�o disponível)"
+        info "Pulando consultas MongoDB (cliente nao disponivel)"
         return 1
     fi
 
-    # Testar conex�o
+    # Testar conexao
     if timeout 10 "$MONGO_CMD" \
         "$MONGO_URI" \
         --quiet \
@@ -78,17 +78,17 @@ check_mongodb() {
         success "MongoDB conectado em $MONGO_URI"
         return 0
     else
-        warning "MongoDB n�o acess�vel em $MONGO_URI"
-        echo "Verifique se o MongoDB est� rodando:"
+        warning "MongoDB nao acessivel em $MONGO_URI"
+        echo "Verifique se o MongoDB esta rodando:"
         echo "  docker ps | grep mongo"
         echo "  cd docker && docker compose up -d"
         echo ""
-        info "Pulando consultas MongoDB (conex�o n�o disponível)"
+        info "Pulando consultas MongoDB (conexao nao disponivel)"
         return 1
     fi
 }
 
-# Fun��o para executar consulta
+# Funcao para executar consulta
 execute_query() {
     local title="$1"
     local query="$2"
@@ -113,15 +113,15 @@ execute_query() {
     fi
 }
 
-# Consulta 1: Estat�sticas gerais
+# Consulta 1: Estatisticas gerais
 query_general_stats() {
     local query='
-    print("=� ESTAT�STICAS GERAIS");
+    print("» ESTATISTICAS GERAIS");
     print("PPPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
-    // Cole��es dispon�veis
-    print("=�  Cole��es dispon�veis:");
+    // Colecoes disponiveis
+    print("»  Colecoes disponiveis:");
     db.listCollections().forEach(function(collection) {
         var count = db[collection.name].countDocuments({});
         print("   " + collection.name + ": " + count + " documentos");
@@ -129,8 +129,8 @@ query_general_stats() {
 
     print("");
 
-    // Estat�sticas de raw_pages
-    print("=� Raw Pages (HTML bruto):");
+    // Estatisticas de raw_pages
+    print("» Raw Pages (HTML bruto):");
     var rawStats = db.raw_pages.aggregate([
         {$group: {
             _id: "$context.tipo",
@@ -140,18 +140,18 @@ query_general_stats() {
     ]).toArray();
 
     rawStats.forEach(function(stat) {
-        print("   " + (stat._id || "undefined") + ": " + stat.count + " p�ginas");
+        print("   " + (stat._id || "undefined") + ": " + stat.count + " paginas");
     });
 
     var totalRaw = db.raw_pages.countDocuments({});
-    print("   Total: " + totalRaw + " p�ginas HTML salvas");
+    print("   Total: " + totalRaw + " paginas HTML salvas");
 
     print("");
 
-    // Estat�sticas de processos
-    print("�  Processos estruturados:");
+    // Estatisticas de processos
+    print("a  Processos estruturados:");
     var totalProcessos = db.processos.countDocuments({});
-    print("   Total: " + totalProcessos + " processos extra�dos");
+    print("   Total: " + totalProcessos + " processos extraidos");
 
     if (totalProcessos > 0) {
         var comRelator = db.processos.countDocuments({relator: {$ne: null, $ne: ""}});
@@ -160,17 +160,17 @@ query_general_stats() {
 
         print("   Com relator: " + comRelator + " (" + Math.round(comRelator*100/totalProcessos) + "%)");
         print("   Com envolvidos: " + comEnvolvidos + " (" + Math.round(comEnvolvidos*100/totalProcessos) + "%)");
-        print("   Com movimenta��es: " + comMovimentacoes + " (" + Math.round(comMovimentacoes*100/totalProcessos) + "%)");
+        print("   Com movimentaes: " + comMovimentacoes + " (" + Math.round(comMovimentacoes*100/totalProcessos) + "%)");
     }
     '
 
-    execute_query "=� Estat�sticas Gerais" "$query"
+    execute_query "» Estatisticas Gerais" "$query"
 }
 
-# Consulta 2: �ltimas p�ginas coletadas
+# Consulta 2: Ultimas paginas coletadas
 query_recent_pages() {
     local query='
-    print("=R �LTIMAS P�GINAS COLETADAS");
+    print("=R ULTIMAS PAGINAS COLETADAS");
     print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
@@ -186,7 +186,7 @@ query_recent_pages() {
         var tipo = doc.context.tipo || "N/A";
         var busca = doc.context.busca || "N/A";
         var identificador = doc.context.numero || doc.context.cnpj || "N/A";
-        var pageIdx = doc.context.page_idx !== undefined ? " (p�g " + doc.context.page_idx + ")" : "";
+        var pageIdx = doc.context.page_idx !== undefined ? " (pag " + doc.context.page_idx + ")" : "";
         var timestamp = doc.fetched_at || "N/A";
 
         print("< " + tipo + " | " + busca + " | " + identificador + pageIdx);
@@ -196,23 +196,23 @@ query_recent_pages() {
     });
     '
 
-    execute_query "=R �ltimas P�ginas Coletadas" "$query"
+    execute_query "=R Ultimas Paginas Coletadas" "$query"
 }
 
-# Consulta 3: Processos extra�dos
+# Consulta 3: Processos extraidos
 query_extracted_processes() {
     local query='
-    print("�  PROCESSOS EXTRA�DOS");
+    print("a  PROCESSOS EXTRAIDOS");
     print("PPPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
     var totalProcessos = db.processos.countDocuments({});
     if (totalProcessos === 0) {
-        print("L Nenhum processo encontrado na cole��o processos");
+        print("L Nenhum processo encontrado na colecao processos");
         return;
     }
 
-    print("=� �ltimos 5 processos extra�dos:");
+    print("» ultimos 5 processos extraidos:");
     print("");
 
     db.processos.find({}, {
@@ -224,9 +224,9 @@ query_extracted_processes() {
         "movimentacoes.0.data": 1,
         scraped_at: 1
     }).sort({_id: -1}).limit(5).forEach(function(doc) {
-        print("=� " + (doc.numero_processo || doc._id));
+        print("» " + (doc.numero_processo || doc._id));
         print("   Relator: " + (doc.relator || "N/A"));
-        print("   Data autua��o: " + (doc.data_autuacao || "N/A"));
+        print("   Data autuacao: " + (doc.data_autuacao || "N/A"));
 
         if (doc.envolvidos && doc.envolvidos.length > 0) {
             print("   Primeiro envolvido: " + doc.envolvidos[0].papel + " - " + doc.envolvidos[0].nome);
@@ -235,17 +235,17 @@ query_extracted_processes() {
         }
 
         if (doc.movimentacoes && doc.movimentacoes.length > 0) {
-            print("   �ltima movimenta��o: " + doc.movimentacoes[0].data);
+            print("   ultima movimentacao: " + doc.movimentacoes[0].data);
         } else {
-            print("   Movimenta��es: N/A");
+            print("   Movimentacoes: N/A");
         }
 
-        print("   Extra�do em: " + (doc.scraped_at || "N/A"));
+        print("   Extraido em: " + (doc.scraped_at || "N/A"));
         print("");
     });
     '
 
-    execute_query "� Processos Extra�dos" "$query"
+    execute_query "a Processos Extraidos" "$query"
 }
 
 # Consulta 4: Verificar NPUs do Banco do Brasil
@@ -254,7 +254,7 @@ query_bb_npus() {
     npus_array="[${npus_array%,}]"
 
     local query="
-    print(\"<� VERIFICA��O NPUs BANCO DO BRASIL\");
+    print(\"<a VERIFICACAO NPUs BANCO DO BRASIL\");
     print(\"PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP\");
     print(\"\");
 
@@ -262,7 +262,7 @@ query_bb_npus() {
     var encontrados = 0;
     var faltantes = [];
 
-    print(\"=� Verificando NPUs fornecidos pelo Banco do Brasil:\");
+    print(\"» Verificando NPUs fornecidos pelo Banco do Brasil:\");
     print(\"\");
 
     npusBB.forEach(function(npu) {
@@ -271,7 +271,7 @@ query_bb_npus() {
             encontrados++;
             print(\" \" + npu + \" - OK\");
             print(\"   Relator: \" + (processo.relator || \"N/A\"));
-            print(\"   Data autua��o: \" + (processo.data_autuacao || \"N/A\"));
+            print(\"   Data autuacao: \" + (processo.data_autuacao || \"N/A\"));
         } else {
             faltantes.push(npu);
             print(\"L \" + npu + \" - FALTANDO\");
@@ -279,29 +279,29 @@ query_bb_npus() {
         print(\"\");
     });
 
-    print(\"=� Resumo:\");
+    print(\"» Resumo:\");
     print(\"   Encontrados: \" + encontrados + \"/\" + npusBB.length);
     print(\"   Faltantes: \" + faltantes.length + \"/\" + npusBB.length);
 
     if (faltantes.length > 0) {
         print(\"\");
-        print(\"�  NPUs faltantes:\");
+        print(\"a  NPUs faltantes:\");
         faltantes.forEach(function(npu) {
             print(\"   - \" + npu);
         });
         print(\"\");
-        print(\"=� Para coletar NPUs faltantes:\");
+        print(\"» Para coletar NPUs faltantes:\");
         print(\"   ./scripts/run_npu.sh\");
     }
     "
 
-    execute_query "<� Verifica��o NPUs Banco do Brasil" "$query"
+    execute_query "<a Verificao NPUs Banco do Brasil" "$query"
 }
 
-# Consulta 5: An�lise de qualidade dos dados
+# Consulta 5: Analise de qualidade dos dados
 query_data_quality() {
     local query='
-    print("= AN�LISE DE QUALIDADE DOS DADOS");
+    print("= ANaLISE DE QUALIDADE DOS DADOS");
     print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
@@ -311,10 +311,10 @@ query_data_quality() {
         return;
     }
 
-    print("=� Qualidade dos campos obrigat�rios:");
+    print("» Qualidade dos campos obrigatorios:");
     print("");
 
-    // Verificar campos obrigat�rios
+    // Verificar campos obrigatorios
     var semNumeroProcesso = db.processos.countDocuments({$or: [{numero_processo: null}, {numero_processo: ""}]});
     var semRelator = db.processos.countDocuments({$or: [{relator: null}, {relator: ""}]});
     var semDataAutuacao = db.processos.countDocuments({$or: [{data_autuacao: null}, {data_autuacao: ""}]});
@@ -328,7 +328,7 @@ query_data_quality() {
     print(" movimentacoes: " + (totalProcessos - semMovimentacoes) + "/" + totalProcessos + " com dados");
 
     print("");
-    print("= Verifica��es de formato:");
+    print("= Verificacoes de formato:");
 
     // Verificar formato de datas ISO
     var datasNaoISO = db.processos.countDocuments({
@@ -336,23 +336,23 @@ query_data_quality() {
     });
 
     if (datasNaoISO === 0) {
-        print(" Todas as datas de autua��o est�o em formato ISO-8601");
+        print(" Todas as datas de autuacao estao em formato ISO-8601");
     } else {
-        print("L " + datasNaoISO + " datas de autua��o n�o est�o em formato ISO-8601");
+        print("L " + datasNaoISO + " datas de autuacao nao estao em formato ISO-8601");
     }
 
-    // Verificar relatores com prefixos n�o removidos
+    // Verificar relatores com prefixos nao removidos
     var relatoresComPrefixo = db.processos.countDocuments({
         relator: {$regex: /^(Des\.|DESEMBARGADOR|JUIZ)/i}
     });
 
     if (relatoresComPrefixo === 0) {
-        print(" Todos os relatores est�o sem prefixos/t�tulos");
+        print(" Todos os relatores estao sem prefixos/titulos");
     } else {
-        print("L " + relatoresComPrefixo + " relatores ainda cont�m prefixos/t�tulos");
+        print("L " + relatoresComPrefixo + " relatores ainda contem prefixos/titulos");
 
         print("");
-        print("=� Exemplos de relatores com prefixo:");
+        print("» Exemplos de relatores com prefixo:");
         db.processos.find(
             {relator: {$regex: /^(Des\.|DESEMBARGADOR|JUIZ)/i}},
             {numero_processo: 1, relator: 1}
@@ -362,7 +362,7 @@ query_data_quality() {
     }
 
     print("");
-    print("=� Estat�sticas de envolvidos:");
+    print("» Estatisticas de envolvidos:");
     var estatEnvolvidos = db.processos.aggregate([
         {$match: {envolvidos: {$ne: null, $ne: []}}},
         {$project: {count: {$size: "$envolvidos"}}},
@@ -378,12 +378,12 @@ query_data_quality() {
     if (estatEnvolvidos.length > 0) {
         var stat = estatEnvolvidos[0];
         print("   Processos com envolvidos: " + stat.total);
-        print("   M�dia de envolvidos: " + Math.round(stat.media * 100) / 100);
-        print("   M�nimo: " + stat.minimo + ", M�ximo: " + stat.maximo);
+        print("   Media de envolvidos: " + Math.round(stat.media * 100) / 100);
+        print("   Minimo: " + stat.minimo + ", Maximo: " + stat.maximo);
     }
 
     print("");
-    print("=� Estat�sticas de movimenta��es:");
+    print("» Estatisticas de movimentaes:");
     var estatMovimentacoes = db.processos.aggregate([
         {$match: {movimentacoes: {$ne: null, $ne: []}}},
         {$project: {count: {$size: "$movimentacoes"}}},
@@ -398,38 +398,38 @@ query_data_quality() {
 
     if (estatMovimentacoes.length > 0) {
         var stat = estatMovimentacoes[0];
-        print("   Processos com movimenta��es: " + stat.total);
-        print("   M�dia de movimenta��es: " + Math.round(stat.media * 100) / 100);
-        print("   M�nimo: " + stat.minimo + ", M�ximo: " + stat.maximo);
+        print("   Processos com movimentaes: " + stat.total);
+        print("   Media de movimentaes: " + Math.round(stat.media * 100) / 100);
+        print("   Minimo: " + stat.minimo + ", Maximo: " + stat.maximo);
     }
     '
 
-    execute_query "= An�lise de Qualidade dos Dados" "$query"
+    execute_query "= Analise de Qualidade dos Dados" "$query"
 }
 
-# Consulta 6: Estat�sticas de descoberta por CNPJ
+# Consulta 6: Estatisticas de descoberta por CNPJ
 query_cnpj_discovery() {
     local query='
-    print("<� DESCOBERTA POR CNPJ");
+    print("<a DESCOBERTA POR CNPJ");
     print("PPPPPPPPPPPPPPPPPPPPPP");
     print("");
 
-    // Verificar p�ginas coletadas via CNPJ
+    // Verificar paginas coletadas via CNPJ
     var paginasCNPJ = db.raw_pages.countDocuments({"context.busca": "cnpj"});
 
     if (paginasCNPJ === 0) {
-        print("L Nenhuma p�gina coletada via busca por CNPJ");
+        print("L Nenhuma pagina coletada via busca por CNPJ");
         print("");
-        print("=� Para executar descoberta por CNPJ:");
+        print("» Para executar descoberta por CNPJ:");
         print("   ./scripts/run_cnpj.sh");
         return;
     }
 
-    print("=� P�ginas coletadas via CNPJ: " + paginasCNPJ);
+    print("» Paginas coletadas via CNPJ: " + paginasCNPJ);
     print("");
 
-    // Distribui��o por tipo de p�gina
-    print("=� Distribui��o por tipo:");
+    // Distribuicao por tipo de pagina
+    print("» Distribuicao por tipo:");
     db.raw_pages.aggregate([
         {$match: {"context.busca": "cnpj"}},
         {$group: {
@@ -438,12 +438,12 @@ query_cnpj_discovery() {
         }},
         {$sort: {_id: 1}}
     ]).forEach(function(doc) {
-        print("   " + (doc._id || "undefined") + ": " + doc.count + " p�ginas");
+        print("   " + (doc._id || "undefined") + ": " + doc.count + " paginas");
     });
 
-    // Verificar pagina��o detectada
+    // Verificar paginacao detectada
     print("");
-    print("=� An�lise de pagina��o:");
+    print("» Analise de paginacao:");
     var paginasLista = db.raw_pages.countDocuments({
         "context.busca": "cnpj",
         "context.tipo": "lista"
@@ -456,8 +456,8 @@ query_cnpj_discovery() {
             "context.page_idx": {$exists: true, $ne: null}
         });
 
-        print("   P�ginas de lista: " + paginasLista);
-        print("   Com �ndice de p�gina: " + paginasComIndice);
+        print("   Paginas de lista: " + paginasLista);
+        print("   Com indice de pagina: " + paginasComIndice);
 
         if (paginasComIndice > 0) {
             var maxPageIdx = db.raw_pages.findOne(
@@ -465,50 +465,50 @@ query_cnpj_discovery() {
                 {"context.page_idx": 1}
             ).context.page_idx;
 
-            print("   P�ginas navegadas: 0 at� " + (maxPageIdx || 0));
+            print("   Paginas navegadas: 0 ate " + (maxPageIdx || 0));
         }
     }
 
-    // Processos descobertos via CNPJ (aproxima��o)
+    // Processos descobertos via CNPJ (aproximacao)
     print("");
-    print("�  Processos potencialmente descobertos via CNPJ:");
+    print("a  Processos potencialmente descobertos via CNPJ:");
     var processosCNPJ = db.processos.countDocuments({});
-    print("   Total de processos extra�dos: " + processosCNPJ);
+    print("   Total de processos extraidos: " + processosCNPJ);
     print("   (Nota: Podem incluir NPUs coletados diretamente)");
     '
 
-    execute_query "<� Descoberta por CNPJ" "$query"
+    execute_query "<a Descoberta por CNPJ" "$query"
 }
 
-# Fun��o para mostrar ajuda
+# Funcao para mostrar ajuda
 show_help() {
     echo "Uso: $0 [OPCAO]"
     echo ""
     echo "Executa consultas padronizadas no MongoDB do TRF5 Scraper"
     echo ""
-    echo "Op��es:"
-    echo "  -a, --all         Executar todas as consultas (padr�o)"
-    echo "  -s, --stats       Apenas estat�sticas gerais"
-    echo "  -p, --pages       Apenas �ltimas p�ginas coletadas"
-    echo "  -r, --processes   Apenas processos extra�dos"
-    echo "  -b, --bb-npus     Apenas verifica��o dos NPUs do BB"
-    echo "  -q, --quality     Apenas an�lise de qualidade dos dados"
-    echo "  -c, --cnpj        Apenas estat�sticas de descoberta por CNPJ"
+    echo "Opcoes:"
+    echo "  -a, --all         Executar todas as consultas (padrao)"
+    echo "  -s, --stats       Apenas estatisticas gerais"
+    echo "  -p, --pages       Apenas Ultimas paginas coletadas"
+    echo "  -r, --processes   Apenas processos extraidos"
+    echo "  -b, --bb-npus     Apenas verificacao dos NPUs do BB"
+    echo "  -q, --quality     Apenas analise de qualidade dos dados"
+    echo "  -c, --cnpj        Apenas estatisticas de descoberta por CNPJ"
     echo "  -h, --help        Mostrar esta ajuda"
     echo ""
-    echo "Vari�veis de ambiente:"
-    echo "  MONGO_URI         URI de conex�o MongoDB (padr�o: mongodb://localhost:27017)"
-    echo "  MONGO_DB          Nome da base de dados (padr�o: trf5)"
+    echo "Variaveis de ambiente:"
+    echo "  MONGO_URI         URI de conexao MongoDB (padrao: mongodb://localhost:27017)"
+    echo "  MONGO_DB          Nome da base de dados (padrao: trf5)"
     echo ""
     echo "Exemplos:"
     echo "  $0                # Executar todas as consultas"
-    echo "  $0 --stats        # Apenas estat�sticas gerais"
+    echo "  $0 --stats        # Apenas estatisticas gerais"
     echo "  $0 --bb-npus      # Verificar NPUs do Banco do Brasil"
     echo ""
-    echo "  MONGO_URI=mongodb://localhost:27017 $0  # Usar URI espec�fica"
+    echo "  MONGO_URI=mongodb://localhost:27017 $0  # Usar URI especifica"
 }
 
-# Fun��o principal
+# Funcao principal
 main() {
     local option="${1:-all}"
 
@@ -527,16 +527,16 @@ main() {
     # Verificar MongoDB
     if ! check_mongodb; then
         echo ""
-        warning "Consultas MongoDB n�o podem ser executadas (depend�ncias n�o disponíveis)"
+        warning "Consultas MongoDB nao podem ser executadas (dependencias nao disponiveis)"
         echo ""
         info "Para usar este script, certifique-se de que:"
-        echo "  1. mongosh ou mongo est�o instalados"
-        echo "  2. MongoDB est� rodando e acess�vel"
+        echo "  1. mongosh ou mongo estao instalados"
+        echo "  2. MongoDB esta rodando e acessivel"
         echo ""
         exit 0
     fi
 
-    # Executar consultas baseadas na op��o
+    # Executar consultas baseadas na opaao
     case "$option" in
         -a|--all|all)
             query_general_stats
@@ -565,8 +565,8 @@ main() {
             query_cnpj_discovery
             ;;
         *)
-            warning "Op��o desconhecida: $option"
-            echo "Use $0 --help para ver as op��es dispon�veis"
+            warning "Opcao desconhecida: $option"
+            echo "Use $0 --help para ver as opcoes disponiveis"
             exit 1
             ;;
     esac
@@ -574,13 +574,13 @@ main() {
     echo ""
     echo ""
     echo ""
-    success " Consultas conclu�das com sucesso!"
+    success " Consultas concluidas com sucesso!"
     echo ""
-    info "=� Dicas:"
+    info "» Dicas:"
     echo "  Para conectar diretamente: mongosh \"$MONGO_URI/$MONGO_DB\""
-    echo "  Para executar consultas espec�ficas: $0 --help"
+    echo "  Para executar consultas especificas: $0 --help"
     echo "  Para coletar mais dados: ./scripts/run_npu.sh ou ./scripts/run_cnpj.sh"
 }
 
-# Executar fun��o principal
+# Executar funcao principal
 main "$@"

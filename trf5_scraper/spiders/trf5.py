@@ -77,13 +77,9 @@ class Trf5Spider(scrapy.Spider):
     def __init__(self, modo=None, valor=None, max_pages=None, max_details_per_page=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if not modo or not valor:
-            raise ValueError("Parâmetros 'modo' e 'valor' são obrigatórios")
-        if modo not in ['numero', 'cnpj']:
-            raise ValueError("Modo deve ser 'numero' ou 'cnpj'")
-
+        # Armazenar parâmetros sem validação (validação será feita em start_requests)
         self.modo = modo
-        self.valor = str(valor).strip()
+        self.valor = str(valor).strip() if valor else None
 
         limits = compute_limits(
             int(max_pages) if max_pages else None,
@@ -92,9 +88,11 @@ class Trf5Spider(scrapy.Spider):
         self.max_pages = limits['max_pages']
         self.max_details_per_page = limits['max_details_per_page']
 
-        if self.modo == 'numero':
+        # Normalização defensiva (pode resultar em None se inválido)
+        self.valor_normalizado = None
+        if self.modo == 'numero' and self.valor:
             self.valor_normalizado = normalize_npu_hyphenated(self.valor)
-        else:
+        elif self.modo == 'cnpj' and self.valor:
             self.valor_normalizado = normalize_cnpj_digits(self.valor)
 
         self.cnpj_pages_processed = 0
@@ -115,15 +113,24 @@ class Trf5Spider(scrapy.Spider):
         Método legado para compatibilidade com Scrapy < 2.13.
         A partir do Scrapy 2.13, preferência é dada ao método start().
         """
-        from scrapy.exceptions import CloseSpider
+        # Validação com logs informativos e encerramento silencioso
+        if not self.modo or not self.valor:
+            self.logger.error("Parâmetros 'modo' e 'valor' são obrigatórios")
+            self.logger.info("Uso: scrapy crawl trf5 -a modo=numero -a valor='0015648-78.1999.4.05.0000'")
+            return
 
-        # Validação com encerramento limpo quando spider está ativo
+        if self.modo not in ['numero', 'cnpj']:
+            self.logger.error(f"Modo inválido: '{self.modo}'. Deve ser 'numero' ou 'cnpj'")
+            return
+
         if self.modo == 'numero':
             if not self.valor_normalizado or len(normalize_npu_digits(self.valor)) != 20:
-                raise CloseSpider(f"NPU inválido: {self.valor}. NPU deve ter 20 dígitos.")
+                self.logger.error(f"NPU inválido: {self.valor}. NPU deve ter 20 dígitos.")
+                return
         else:
             if not self.valor_normalizado or len(self.valor_normalizado) != 14:
-                raise CloseSpider(f"CNPJ inválido: {self.valor}. CNPJ deve ter 14 dígitos.")
+                self.logger.error(f"CNPJ inválido: {self.valor}. CNPJ deve ter 14 dígitos.")
+                return
 
         self.logger.info(
             "Iniciando coleta TRF5 (modo=%s, valor=%s, max_pages=%d, max_details=%d)",
