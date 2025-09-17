@@ -1,0 +1,8 @@
+# TRF5 Scraper Dependencies
+# Versões mais recentes compatíveis com Python 3.11+ conforme PRD
+
+# Web scraping framework
+scrapy==2.13.3
+
+# MongoDB driver
+pymongo==4.15.0

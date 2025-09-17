@@ -1,0 +1,15 @@
+- faltantes_campos_obrigatorios.json
+- idempotencia_updates.txt
+- INDEX.md
+- parse_offline_resumo.txt
+- processos_count_after.txt
+- processos_count_before.txt
+- processos_insert_update_npu.txt
+- processos_por_npu.json
+- qa_final.txt
+- qa_inicial.txt
+- raw_pages_cnpj_detalhes.json
+- raw_pages_cnpj_listas.json
+- raw_pages_npu_detalhe.json
+- relator_com_prefixo.json
+- validacao_iso.json

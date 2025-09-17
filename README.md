@@ -4,41 +4,44 @@ Raspador desenvolvido em **Scrapy** para extrair dados de processos jurídicos d
 
 ## Funcionalidades
 
-- **Busca por NPU**: Consulta processos específicos por número
-- **Descoberta por CNPJ**: Encontra processos associados a um CNPJ
-- **Persistência MongoDB**: Armazena HTML bruto e dados estruturados
-- **Idempotência**: Updates automáticos sem duplicação
-- **Reprocessamento offline**: Analisa dados salvos sem rede
-- **Políticas de cortesia**: Respeita robots.txt e rate limiting
+* **Busca por NPU**: Consulta processos específicos por número
+* **Descoberta por CNPJ**: Encontra processos associados a um CNPJ
+* **Persistência MongoDB**: Armazena HTML bruto e dados estruturados
+* **Idempotência**: Updates automáticos sem duplicação
+* **Reprocessamento offline**: Analisa dados salvos sem rede
+* **Políticas de cortesia**: Respeita robots.txt e rate limiting
 
 ## URL Alvo
 
-- **Sistema TRF5**: http://www5.trf5.jus.br/cp/
+* **Sistema TRF5**: [http://www5.trf5.jus.br/cp/](http://www5.trf5.jus.br/cp/)
 
 ## Dados Extraídos
 
 Para cada processo, o scraper extrai:
 
-- `numero_processo` - Número principal (com fallback para numero_legado)
-- `numero_legado` - Número antigo do processo
-- `data_autuacao` - Data de autuação (ISO-8601)
-- `envolvidos[]` - Lista com papel e nome de cada envolvido
-- `relator` - Nome do relator (sem títulos/cargos)
-- `movimentacoes[]` - Lista cronológica com data e texto
+* `numero_processo` - Número principal (com fallback para numero\_legado)
+* `numero_legado` - Número antigo do processo
+* `data_autuacao` - Data de autuação (ISO-8601)
+* `envolvidos[]` - Lista com papel e nome de cada envolvido
+* `relator` - Nome do relator (sem títulos/cargos)
+* `movimentacoes[]` - Lista cronológica com data e texto
 
 ## Instalação
 
 ### Pré-requisitos
 
 #### Obrigatórios
-- **Python 3.11+**
-- **Docker** (para MongoDB via container)
-- **Git**
+
+* **Python 3.11+**
+* **Docker** (para MongoDB via container)
+* **Git**
 
 #### Opcionais (para scripts de automação)
-- **mongosh** ou **mongo** - Cliente MongoDB para verificações
-  - Instalação: https://docs.mongodb.com/mongosh/install/
-  - Usado apenas por scripts auxiliares em `scripts/`
+
+* **mongosh** ou **mongo** - Cliente MongoDB para verificações
+
+  * Instalação: [https://docs.mongodb.com/mongosh/install/](https://docs.mongodb.com/mongosh/install/)
+  * Usado apenas por scripts auxiliares em `scripts/`
 
 ### 1. Clone o repositório
 
@@ -70,25 +73,44 @@ pip install -r requirements.txt
 cd docker
 docker compose up -d
 # ou docker-compose up -d (se usando Compose v1)
+cd ..
 ```
+
+> **Dica:** verifique se há suporte ao Compose no seu Docker:
+>
+> ```bash
+> docker compose version || docker-compose --version
+> ```
+>
+> Se o comando acima falhar, veja a seção **Solução de Problemas → Docker Compose ausente** no fim deste README.
 
 #### Opção B: MongoDB local
 
-Certifique-se que o MongoDB está rodando em `localhost:27017`
+Certifique-se de que o MongoDB está rodando em `localhost:27017`.
+
+> **Importante:** se o seu Mongo local **não** usa autenticação, ajuste o `.env` no **Passo 5** para uma URI **sem usuário/senha** (exemplo logo abaixo).
 
 ### 5. Configurar variáveis de ambiente
 
-**IMPORTANTE**: O arquivo `.env` é carregado automaticamente pelo Scrapy. Não é necessário definir variáveis manualmente no terminal.
+**IMPORTANTE:** O arquivo `.env` é carregado automaticamente pelo Scrapy. **Crie-o antes de executar qualquer comando `scrapy`**.
 
 ```bash
 cp config/.env.example .env
-# O arquivo .env já vem pré-configurado para Docker
-# Editar apenas se necessário para seu ambiente específico
+# O arquivo .env já vem pré-configurado para Docker.
+# Edite apenas se necessário para seu ambiente específico.
 ```
 
 **Configuração padrão (funciona com Docker):**
+
 ```bash
 MONGO_URI=mongodb://trf5:trf5pass@localhost:27017/trf5?authSource=trf5
+MONGO_DB=trf5
+```
+
+**Configuração alternativa (Mongo local sem autenticação):**
+
+```bash
+MONGO_URI=mongodb://localhost:27017/trf5
 MONGO_DB=trf5
 ```
 
@@ -102,16 +124,17 @@ scrapy crawl trf5 -a modo=numero -a valor="0015648-78.1999.4.05.0000" -s LOG_LEV
 ```
 
 **NPUs disponíveis para teste** (fornecidos pelo Banco do Brasil):
-- `0015648-78.1999.4.05.0000`
-- `0012656-90.2012.4.05.0000`
-- `0043753-74.2013.4.05.0000`
-- `0002098-07.2011.4.05.8500`
-- `0460674-33.2019.4.05.0000`
-- `0000560-67.2017.4.05.0000`
+
+* `0015648-78.1999.4.05.0000`
+* `0012656-90.2012.4.05.0000`
+* `0043753-74.2013.4.05.0000`
+* `0002098-07.2011.4.05.8500`
+* `0460674-33.2019.4.05.0000`
+* `0000560-67.2017.4.05.0000`
 
 ### Descoberta por CNPJ
 
-**IMPORTANTE**: A busca por CNPJ só retornará resultados se a empresa possuir processos ativos no sistema TRF5. Use CNPJs reais de empresas que tenham processos na justiça federal da 5ª região (AL, CE, PB, PE, RN, SE).
+**IMPORTANTE:** A busca por CNPJ só retornará resultados se a empresa possuir processos ativos no sistema TRF5. Use CNPJs reais de empresas que tenham processos na justiça federal da 5ª região (AL, CE, PB, PE, RN, SE).
 
 ```bash
 # Exemplo com CNPJ do Banco do Brasil - pode não retornar resultados
@@ -123,7 +146,7 @@ scrapy crawl trf5 \
   -s LOG_LEVEL=INFO
 ```
 
-**Dica de uso**: Para verificar se um CNPJ possui processos, faça primeiro uma busca com `max_pages=1 max_details_per_page=1` antes de executar uma coleta completa.
+**Dica de uso:** Para verificar se um CNPJ possui processos, faça primeiro uma busca com `max_pages=1 max_details_per_page=1` antes de executar uma coleta completa.
 
 ### Reprocessamento Offline
 
@@ -213,10 +236,10 @@ LOG_LEVEL=INFO
 
 O scraper implementa as seguintes políticas para respeitar o servidor TRF5:
 
-- `ROBOTSTXT_OBEY=True` - Respeita robots.txt
-- `DOWNLOAD_DELAY=0.7` - Delay mínimo entre requisições
-- `AUTOTHROTTLE_ENABLED=True` - Ajuste automático de velocidade
-- `CONCURRENT_REQUESTS=1` - Uma requisição por vez
+* `ROBOTSTXT_OBEY=True` - Respeita robots.txt
+* `DOWNLOAD_DELAY=0.7` - Delay mínimo entre requisições
+* `AUTOTHROTTLE_ENABLED=True` - Ajuste automático de velocidade
+* `CONCURRENT_REQUESTS=1` - Uma requisição por vez
 
 ## Estrutura de Dados MongoDB
 
@@ -305,6 +328,7 @@ scrapy list
 ## Dados de Teste
 
 ### NPUs do Banco do Brasil
+
 ```
 0015648-78.1999.4.05.0000
 0012656-90.2012.4.05.0000
@@ -315,6 +339,7 @@ scrapy list
 ```
 
 ### CNPJ do Banco do Brasil
+
 ```
 00.000.000/0001-91
 ```
@@ -325,10 +350,10 @@ scrapy list
 
 Durante a execução, observe os logs para:
 
-- **Classificação de páginas**: `detalhe`, `lista`, `erro`
-- **Paginação detectada**: `Total: N` ou `próxima página`
-- **Persistência**: `[raw]` para HTML bruto, `[processos]` para dados estruturados
-- **Idempotência**: `insert` vs `update` no MongoDB
+* **Classificação de páginas**: `detalhe`, `lista`, `erro`
+* **Paginação detectada**: `Total: N` ou `próxima página`
+* **Persistência**: `[raw]` para HTML bruto, `[processos]` para dados estruturados
+* **Idempotência**: `insert` vs `update` no MongoDB
 
 ### Exemplo de Log Típico
 
@@ -340,6 +365,29 @@ Durante a execução, observe os logs para:
 
 ## Solução de Problemas
 
+### Docker Compose ausente
+
+Se `docker compose up -d` falhar com algo como `unknown shorthand flag: 'd' in -d`, instale o Compose apropriado e/ou use o binário v1:
+
+```bash
+# Verificar suporte
+docker compose version || docker-compose --version
+
+# Ubuntu/Debian - plugin v2:
+sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+
+# Alternativa v1:
+sudo apt-get update && sudo apt-get install -y docker-compose
+```
+
+Após instalar, rode novamente:
+
+```bash
+cd docker
+docker compose up -d || docker-compose up -d
+cd ..
+```
+
 ### MongoDB não conecta
 
 ```bash
@@ -348,6 +396,8 @@ docker ps | grep mongo
 # ou
 docker exec trf5-mongo mongosh --eval "db.runCommand('ping')"
 ```
+
+Se estiver usando **Mongo local sem autenticação**, ajuste o `.env` conforme mostrado em **Configuração alternativa** (sem usuário/senha).
 
 ### Scrapy não encontra spiders
 
